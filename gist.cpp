@@ -158,6 +158,8 @@ Gist_Processor::Gist_Processor(cv::Mat &baseim, int blocks)
 
     gabors = create_gabor(nscales,  orientations, baseim.cols, baseim.rows);
 
+    GaborResponse = cv::Mat(baseim.rows, baseim.cols, CV_32FC1);
+
     prefilt_init(baseim.cols, baseim.rows);
     gfft_init(baseim.cols, baseim.rows);
 
@@ -202,16 +204,23 @@ Gist_Processor::~Gist_Processor()
 
 }
 
-void Gist_Processor::down_N(float *res, cv::Mat &src, int N)
+void Gist_Processor::down_N(float *res, cv::Mat &src, int N, int cshift, int rshift)
 {
     int i, j, k, l;
     
     for(i = 0; i < N+1; i++)
     {
-        nx[i] = i*src.cols/(N);
-        ny[i] = i*src.rows/(N);
+        nx[i] = (i*src.cols/(N)) + cshift;
+        ny[i] = (i*src.rows/(N)) + rshift;
+
     }
 
+    if (nx[0] < 0) nx[0] = 0;
+    if (nx[N] > src.cols) nx[N] = src.cols;
+    
+    if (ny[0] < 0) ny[0] = 0;
+    if (ny[N] > src.rows) ny[N] = src.rows;
+    
     for(l = 0; l < N; l++)
     {
         for(k = 0; k < N; k++)
@@ -347,7 +356,7 @@ cv::Mat Gist_Processor::prefilt_process(cv::Mat &im, int fc)
             ((float *)pim.data)[j*pim.cols+i] = ((float *)pim.data)[j*pim.cols+i] / (0.2f+sqrt(sqrt(in2[j*width+i][0]*in2[j*width+i][0]+in2[j*width+i][1]*in2[j*width+i][1]) / (width*height)));
         }
     }
-
+    printf("HERE\n");
     //
     // Remove borders
     cv::Mat res = pim(cv::Rect(5, 5, pim.cols-10, pim.rows-10));
@@ -356,10 +365,12 @@ cv::Mat Gist_Processor::prefilt_process(cv::Mat &im, int fc)
 }
 
 
-int Gist_Processor::process(cv::Mat &im, int fc, float **res)
+int Gist_Processor::process(cv::Mat &im, int fc, float **res, int xshift, int yshift)
 {
     int height = im.rows;
     int width  = im.cols;
+
+    //prefilt_process(im, 5);
 
     *res = (float *) malloc(nblocks*nblocks*gabors->size()*sizeof(float));
 
@@ -393,11 +404,12 @@ int Gist_Processor::process(cv::Mat &im, int fc, float **res)
         for(int j = 0; j < height; j++)
         {
             for(int i = 0; i < width; i++) {
-                ((float*)im.data)[j*im.cols+i] = sqrt(gin2[j*width+i][0]*gin2[j*width+i][0]+gin2[j*width+i][1]*gin2[j*width+i][1])/(width*height);
+                //((float*)im.data)[j*im.cols+i] 
+                ((float*)GaborResponse.data)[j*GaborResponse.cols+i] = sqrt(gin2[j*width+i][0]*gin2[j*width+i][0]+gin2[j*width+i][1]*gin2[j*width+i][1])/(width*height);
             }
         }
 
-        down_N(*res+k*nblocks*nblocks, im, nblocks);
+        down_N(*res+k*nblocks*nblocks, im, nblocks, xshift, yshift);
 
     }
     
@@ -405,6 +417,18 @@ int Gist_Processor::process(cv::Mat &im, int fc, float **res)
 }
 
 
+float gist_compare(float *d1, float *d2, int size)
+{
+    float sum=0;
+    float v;
 
+    for (int i=0; i < size; i++) {
+        v = d1[i] - d2[i];
+        sum += v*v;
+    }
+
+    return sqrtf(sum);
+    
+}
 
 

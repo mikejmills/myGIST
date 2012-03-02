@@ -37,7 +37,7 @@ int main()
 
 		printf("\n");
 
-		cv::imshow("test", grayf);
+		cv::imshow("test", gray);
 		cv::waitKey(1);
 	
 	}

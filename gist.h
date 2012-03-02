@@ -6,10 +6,12 @@
 #include <fftw3.h>
 
 vector<cv::Mat *> *create_gabor(int nscales,  int *orientations, int width, int height);
+float gist_compare(float *d1, float *d2, int size);
 
 class Gist_Processor
 {
   private:
+    cv::Mat           GaborResponse;
     int               nblocks;
     int               *nx, *ny;
   	vector<cv::Mat *> *gabors;
@@ -20,7 +22,7 @@ class Gist_Processor
     
     void    prefilt_init(int width, int height);
     void    gfft_init(int width, int height);
-    void    down_N(float *res, cv::Mat &src, int N);
+    void    down_N(float *res, cv::Mat &src, int N, int cshift=0, int rshift=0);
   	cv::Mat prefilt_process(cv::Mat &im, int fc);
   	
   public:
@@ -30,7 +32,7 @@ class Gist_Processor
   	~Gist_Processor();
 
     
-    int process(cv::Mat &im, int fc, float **res);
+    int process(cv::Mat &im, int fc, float **res, int xshift=0, int yshift=0);
 
 };
 

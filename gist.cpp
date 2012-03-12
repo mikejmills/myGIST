@@ -158,7 +158,7 @@ Gist_Processor::Gist_Processor(cv::Mat &baseim, int blocks)
 
     gabors = create_gabor(nscales,  orientations, baseim.cols, baseim.rows);
 
-    GaborResponse = cv::Mat(baseim.rows, baseim.cols, CV_32FC1);
+    
 
     prefilt_init(baseim.cols, baseim.rows);
     gfft_init(baseim.cols, baseim.rows);
@@ -167,8 +167,12 @@ Gist_Processor::Gist_Processor(cv::Mat &baseim, int blocks)
     ny = (int *) malloc((nblocks+1)*sizeof(int));
 
     descsize = 0;
-    for(int i=0;i<nscales;i++) 
+
+    for(int i=0;i<nscales;i++) {
         descsize+=nblocks*nblocks*orientations[i];
+        for (int j=0; j < orientations[i]; j++) 
+            GaborResponses.push_back(cv::Mat(baseim.rows, baseim.cols, CV_32FC1));
+    }
 
 
 }
@@ -208,18 +212,22 @@ void Gist_Processor::down_N(float *res, cv::Mat &src, int N, int cshift, int rsh
 {
     int i, j, k, l;
     
+    /*for(i = 0; i < N+1; i++)
+    {
+        if (cshift > 0) {
+            nx[i] = (i*(src.cols-cshift)/(N)) + cshift;
+            ny[i] = (i*(src.rows-rshift)/(N)) + rshift;
+        } else {
+            nx[i] = (i*(src.cols+cshift)/(N));
+            ny[i] = (i*(src.rows+rshift)/(N));
+        }
+        
+    }*/
     for(i = 0; i < N+1; i++)
     {
-        nx[i] = (i*src.cols/(N)) + cshift;
-        ny[i] = (i*src.rows/(N)) + rshift;
-
+        nx[i] = i*src.cols/(N);
+        ny[i] = i*src.cols/(N);
     }
-
-    if (nx[0] < 0) nx[0] = 0;
-    if (nx[N] > src.cols) nx[N] = src.cols;
-    
-    if (ny[0] < 0) ny[0] = 0;
-    if (ny[N] > src.rows) ny[N] = src.rows;
     
     for(l = 0; l < N; l++)
     {
@@ -230,13 +238,16 @@ void Gist_Processor::down_N(float *res, cv::Mat &src, int N, int cshift, int rsh
             for(j = ny[l]; j < ny[l+1]; j++)
             {
                 for(i = nx[k]; i < nx[k+1]; i++) {
+
                     mean += ((float *)src.data)[j*src.cols+i];
+
                 }
             }
-
+            printf("mean %f\n", mean);
             float denom = (float)(ny[l+1]-ny[l])*(nx[k+1]-nx[k]);
 
             res[k*N+l] = mean / denom;
+
         }
     }
 }
@@ -356,7 +367,7 @@ cv::Mat Gist_Processor::prefilt_process(cv::Mat &im, int fc)
             ((float *)pim.data)[j*pim.cols+i] = ((float *)pim.data)[j*pim.cols+i] / (0.2f+sqrt(sqrt(in2[j*width+i][0]*in2[j*width+i][0]+in2[j*width+i][1]*in2[j*width+i][1]) / (width*height)));
         }
     }
-    printf("HERE\n");
+    
     //
     // Remove borders
     cv::Mat res = pim(cv::Rect(5, 5, pim.cols-10, pim.rows-10));
@@ -365,14 +376,13 @@ cv::Mat Gist_Processor::prefilt_process(cv::Mat &im, int fc)
 }
 
 
-int Gist_Processor::process(cv::Mat &im, int fc, float **res, int xshift, int yshift)
+void Gist_Processor::Process(cv::Mat &im)
 {
     int height = im.rows;
     int width  = im.cols;
 
-    //prefilt_process(im, 5);
+    prefilt_process(im, 5);
 
-    *res = (float *) malloc(nblocks*nblocks*gabors->size()*sizeof(float));
 
     for(int j = 0; j < height; j++)
     {
@@ -405,14 +415,25 @@ int Gist_Processor::process(cv::Mat &im, int fc, float **res, int xshift, int ys
         {
             for(int i = 0; i < width; i++) {
                 //((float*)im.data)[j*im.cols+i] 
-                ((float*)GaborResponse.data)[j*GaborResponse.cols+i] = sqrt(gin2[j*width+i][0]*gin2[j*width+i][0]+gin2[j*width+i][1]*gin2[j*width+i][1])/(width*height);
+                ((float*)GaborResponses[k].data)[j*GaborResponses[k].cols+i] = sqrt(gin2[j*width+i][0]*gin2[j*width+i][0]+gin2[j*width+i][1]*gin2[j*width+i][1])/(width*height);
             }
         }
 
-        down_N(*res+k*nblocks*nblocks, im, nblocks, xshift, yshift);
+        //down_N(*res+k*nblocks*nblocks, GaborResponse, nblocks, xshift, yshift);
 
     }
     
+    //return descsize;
+}
+
+
+int Gist_Processor::Get_Descriptor(float **res, int xshift, int yshift)
+{
+    *res = (float *) malloc(nblocks*nblocks*gabors->size()*sizeof(float));
+
+    for (int k=0; k < gabors->size(); k++) {
+        down_N(*res+k*nblocks*nblocks, GaborResponses[k], nblocks, xshift, yshift);
+    }
     return descsize;
 }
 
@@ -426,7 +447,7 @@ float gist_compare(float *d1, float *d2, int size)
         v = d1[i] - d2[i];
         sum += v*v;
     }
-
+    
     return sqrtf(sum);
     
 }

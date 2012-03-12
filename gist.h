@@ -11,7 +11,8 @@ float gist_compare(float *d1, float *d2, int size);
 class Gist_Processor
 {
   private:
-    cv::Mat           GaborResponse;
+    
+    vector<cv::Mat>   GaborResponses;
     int               nblocks;
     int               *nx, *ny;
   	vector<cv::Mat *> *gabors;
@@ -31,8 +32,9 @@ class Gist_Processor
   	Gist_Processor(cv::Mat &baseim, int blocks);
   	~Gist_Processor();
 
+    int Get_Descriptor(float **res, int xshift=0, int yshift=0);
     
-    int process(cv::Mat &im, int fc, float **res, int xshift=0, int yshift=0);
+    void Process(cv::Mat &im);
 
 };
 

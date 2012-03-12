@@ -19,7 +19,7 @@ int main()
 	float *res;
 	int res_size=0;
 
-	Gist_Processor proc(baseim, 4);	
+	Gist_Processor proc(baseim, 1);	
 	
 
 	while(1) {
@@ -29,8 +29,8 @@ int main()
 		cv::cvtColor(baseim, gray, CV_BGR2GRAY);
 		gray.convertTo(grayf, CV_32FC1, (float)1/255);
 
-		res_size = proc.process(grayf, 5, &res);
-		
+		proc.Process(grayf);
+		res_size = proc.Get_Descriptor(&res);
 		for (int i=0; i < res_size; i++) {
 			printf("%f ", res[i]);
 		}

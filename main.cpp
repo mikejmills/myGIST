@@ -2,44 +2,58 @@
 
 #include "gist.h"
 #include <opencv2/highgui/highgui.hpp>
+#include <ctime>
+
+void format_image(cv::Mat &input, cv::Mat &output)
+{
+	cv::Mat gray, tmp;
+
+	cv::resize(input, output, cv::Size(320,240));
+	cv::cvtColor(output, input, CV_BGR2GRAY);
+	input.convertTo(output, CV_32FC1, (float)1/255);
+}
 
 
 int main() 
 {
 	
-	cv::Mat baseim;
+	cv::Mat input, output;
 	cv::namedWindow("test", 1);
 	cv::VideoCapture cap("/Users/mike/code/DenseSamplingHoming/video.mp4");
 
-	cap >> baseim;
+	cap >> input;
 
-	cv::Mat gray(baseim.rows, baseim.cols, CV_8UC1);
-	cv::Mat grayf(baseim.rows, baseim.cols, CV_32FC1);;
-
+	
 	float *res;
 	int res_size=0;
+	format_image(input, output);
 
-	Gist_Processor proc(baseim, 1);	
+	Gist_Processor proc(input, 4);	
 	
-
+	clock_t start, end;
 	while(1) {
 		
-		cap >> baseim;
+		cap >> input;
 		
-		cv::cvtColor(baseim, gray, CV_BGR2GRAY);
-		gray.convertTo(grayf, CV_32FC1, (float)1/255);
+		format_image(input, output);
 
-		proc.Process(grayf);
-		res_size = proc.Get_Descriptor(&res);
-		for (int i=0; i < res_size; i++) {
+		start = clock();
+		proc.Process(output);
+		end = clock();
+
+		printf("Proc time %f\n", float(end - start) / CLOCKS_PER_SEC);
+
+		res_size = proc.Get_Descriptor(&res, 4);
+		printf("DESCSIZE %d\n", res_size);
+		/*for (int i=0; i < res_size; i++) {
 			printf("%f ", res[i]);
 		}
 
 		printf("\n");
-
-		cv::imshow("test", gray);
+	*/
+		cv::imshow("test", output);
 		cv::waitKey(1);
-	
+		
 	}
 	
 	return 0;

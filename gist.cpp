@@ -1,6 +1,5 @@
 #include "gist.h"
 
-
 //
 // Swaps the quadrants of the fft so the zero frequency is in the center
 static void fftshift(float *data, int w, int h)
@@ -32,7 +31,6 @@ static void fftshift(float *data, int w, int h)
             data[j*w + i] = buff[(j+(h+1)/2)*w + i+(w+1)/2];
         }
     }
-
     free(buff);
 }
 
@@ -150,26 +148,22 @@ vector<cv::Mat *> *create_gabor(int nscales,  int *orientations, int width, int 
 
 
 
-Gist_Processor::Gist_Processor(cv::Mat &baseim, int blocks)
+Gist_Processor::Gist_Processor(cv::Mat &baseim, int max_blocks)
 {
     int nscales = 3;
     int orientations[3] = {8,8,4};
-    nblocks = blocks;
+    nblocks = max_blocks;
 
     gabors = create_gabor(nscales,  orientations, baseim.cols, baseim.rows);
-
+    buff = (float *) malloc(baseim.cols*baseim.rows*sizeof(float));
     
-
     prefilt_init(baseim.cols, baseim.rows);
     gfft_init(baseim.cols, baseim.rows);
 
-    nx = (int *) malloc((nblocks+1)*sizeof(int));
-    ny = (int *) malloc((nblocks+1)*sizeof(int));
-
-    descsize = 0;
+    nx = (int *) malloc((max_blocks+1)*sizeof(int));
+    ny = (int *) malloc((max_blocks+1)*sizeof(int));
 
     for(int i=0;i<nscales;i++) {
-        descsize+=nblocks*nblocks*orientations[i];
         for (int j=0; j < orientations[i]; j++) 
             GaborResponses.push_back(cv::Mat(baseim.rows, baseim.cols, CV_32FC1));
     }
@@ -212,7 +206,7 @@ void Gist_Processor::down_N(float *res, cv::Mat &src, int N, int cshift, int rsh
 {
     int i, j, k, l;
     
-    /*for(i = 0; i < N+1; i++)
+    for(i = 0; i < N+1; i++)
     {
         if (cshift > 0) {
             nx[i] = (i*(src.cols-cshift)/(N)) + cshift;
@@ -222,12 +216,8 @@ void Gist_Processor::down_N(float *res, cv::Mat &src, int N, int cshift, int rsh
             ny[i] = (i*(src.rows+rshift)/(N));
         }
         
-    }*/
-    for(i = 0; i < N+1; i++)
-    {
-        nx[i] = i*src.cols/(N);
-        ny[i] = i*src.cols/(N);
     }
+   
     
     for(l = 0; l < N; l++)
     {
@@ -243,7 +233,7 @@ void Gist_Processor::down_N(float *res, cv::Mat &src, int N, int cshift, int rsh
 
                 }
             }
-            printf("mean %f\n", mean);
+            
             float denom = (float)(ny[l+1]-ny[l])*(nx[k+1]-nx[k]);
 
             res[k*N+l] = mean / denom;
@@ -383,7 +373,6 @@ void Gist_Processor::Process(cv::Mat &im)
 
     prefilt_process(im, 5);
 
-
     for(int j = 0; j < height; j++)
     {
         for(int i = 0; i < width; i++)
@@ -419,21 +408,21 @@ void Gist_Processor::Process(cv::Mat &im)
             }
         }
 
-        //down_N(*res+k*nblocks*nblocks, GaborResponse, nblocks, xshift, yshift);
-
+        
     }
     
-    //return descsize;
 }
 
 
-int Gist_Processor::Get_Descriptor(float **res, int xshift, int yshift)
+int Gist_Processor::Get_Descriptor(float **res, int blocks, int xshift, int yshift)
 {
-    *res = (float *) malloc(nblocks*nblocks*gabors->size()*sizeof(float));
+    int descsize = blocks*blocks*gabors->size();
+    *res = (float *) malloc(descsize*sizeof(float));
 
     for (int k=0; k < gabors->size(); k++) {
-        down_N(*res+k*nblocks*nblocks, GaborResponses[k], nblocks, xshift, yshift);
+        down_N(*res+k*blocks*blocks, GaborResponses[k], blocks, xshift, yshift);
     }
+
     return descsize;
 }
 
@@ -450,6 +439,33 @@ float gist_compare(float *d1, float *d2, int size)
     
     return sqrtf(sum);
     
+}
+
+float gist_compare_angle(float *d1, float *d2, int size)
+{
+    float sum=0, sum2=0;
+    float v;
+
+    for (int i=0; i < size; i++) {
+        sum += d1[i] * d1[i];
+        sum2 += d2[i] * d2[i];
+    }
+    
+    sum = sqrtf(sum);
+    sum2 = sqrtf(sum2);
+    
+    for (int i=0; i < size; i++) {
+        d1[i] = d1[i] / sum;
+        d2[i] = d2[i] / sum2;
+    }
+
+    sum = 0;
+    for (int i=0; i < size; i++) {
+        sum += d1[i] * d2[i];
+    }
+    
+    return acosf(sum) * 180.0 / 3.14159265;
+       
 }
 
 

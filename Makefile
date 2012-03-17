@@ -11,7 +11,7 @@ LDFLAGS=-lpthread `pkg-config opencv --libs`
 
 #Check Arch Mac
 ifeq ($(M_ARCH), $(MAC_ARCH))  
-CFLAGS=$(BCFLAGS)  -I/usr/local/include/opencv  -Wall -Wno-sign-compare
+CFLAGS=$(BCFLAGS)  -I/usr/local/include/opencv  -Wall -Wno-sign-compare -O3
 LDFLAGS=-lpthread /usr/local/lib/libopencv_core.dylib /usr/local/lib/libopencv_highgui.dylib /usr/local/lib/libopencv_imgproc.dylib -lfftw3f
 endif
 

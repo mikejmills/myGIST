@@ -1,5 +1,14 @@
 #include "gist.h"
 
+void format_image(cv::Mat &input, cv::Mat &output)
+{
+    cv::Mat gray, tmp;
+
+    cv::resize(input, output, cv::Size(320,240));
+    cv::cvtColor(output, input, CV_BGR2GRAY);
+    input.convertTo(output, CV_32FC1, (float)1/255);
+}
+
 //
 // Swaps the quadrants of the fft so the zero frequency is in the center
 static void fftshift(float *data, int w, int h)
@@ -145,29 +154,44 @@ vector<cv::Mat *> *create_gabor(int nscales,  int *orientations, int width, int 
 
 
 //=============================================================================================================
-
-
-
-Gist_Processor::Gist_Processor(cv::Mat &baseim, int max_blocks)
+void Gist_Processor::init(cv::Mat &baseim, int max_blocks)
 {
     int nscales = 3;
     int orientations[3] = {8,8,4};
     nblocks = max_blocks;
 
     gabors = create_gabor(nscales,  orientations, baseim.cols, baseim.rows);
-    buff = (float *) malloc(baseim.cols*baseim.rows*sizeof(float));
     
     prefilt_init(baseim.cols, baseim.rows);
     gfft_init(baseim.cols, baseim.rows);
 
-    nx = (int *) malloc((max_blocks+1)*sizeof(int));
-    ny = (int *) malloc((max_blocks+1)*sizeof(int));
+    
+    nx   =   (int *) malloc((max_blocks+1)*sizeof(int));
+    ny   =   (int *) malloc((max_blocks+1)*sizeof(int));
 
     for(int i=0;i<nscales;i++) {
         for (int j=0; j < orientations[i]; j++) 
             GaborResponses.push_back(cv::Mat(baseim.rows, baseim.cols, CV_32FC1));
     }
 
+    base_descsize = max_blocks*max_blocks*gabors->size();
+}
+
+
+Gist_Processor::Gist_Processor(cv::Mat &baseim, int max_blocks)
+{
+    init(baseim, max_blocks);
+}
+
+Gist_Processor::Gist_Processor(cv::Mat &baseim, int *blocks, int len)
+{
+    init(baseim, blocks[len-1]);
+    int size;
+    
+    for (int i=0; i < len; i++) {
+        size = blocks[i]*blocks[i]*gabors->size();
+        pca_map[blocks[i]] = make_pair(PCA_LoadData(blocks[i]), new cv::Mat(1, size, CV_32FC1));
+    }
 
 }
 
@@ -199,6 +223,11 @@ Gist_Processor::~Gist_Processor()
 
     free(nx);
     free(ny);
+
+     for ( it=pca_map.begin() ; it != pca_map.end(); it++ ) {
+        PCA_Free((*it).second.first);
+        delete (*it).second.second;
+    }
 
 }
 
@@ -414,18 +443,54 @@ void Gist_Processor::Process(cv::Mat &im)
 }
 
 
+
 int Gist_Processor::Get_Descriptor(float **res, int blocks, int xshift, int yshift)
 {
-    int descsize = blocks*blocks*gabors->size();
-    *res = (float *) malloc(descsize*sizeof(float));
+    int size = blocks*blocks*gabors->size();
+
+    *res = (float *) malloc(size*sizeof(float));
 
     for (int k=0; k < gabors->size(); k++) {
         down_N(*res+k*blocks*blocks, GaborResponses[k], blocks, xshift, yshift);
     }
 
-    return descsize;
+    return size;
 }
 
+int Gist_Processor::Get_Size(int blocks)
+{
+    return blocks*blocks*gabors->size();
+}
+
+
+void Gist_Processor::Get_Descriptor(float *res, int blocks, int xshift, int yshift)
+{
+    
+    for (int k=0; k < gabors->size(); k++) {
+        down_N(res+k*blocks*blocks, GaborResponses[k], blocks, xshift, yshift);
+    }
+
+}
+
+
+void Gist_Processor::Get_Descriptor_PCA(float *res, int blocks, int xshift, int yshift)
+{
+    
+    cv::Mat Output(1, PCA_DIM, CV_32FC1, (void *)res);
+
+    float *ptr = (float *)pca_map[blocks].second->data;
+
+    for (int k=0; k < gabors->size(); k++) {
+        down_N(ptr+k*blocks*blocks, GaborResponses[k], blocks, xshift, yshift);
+    }
+    
+    printf("pca %d %d | %d %d | %d %d\n", pca_map[blocks].second->cols, pca_map[blocks].second->rows, 
+                                      pca_map[blocks].first->eigenvectors.cols, pca_map[blocks].first->eigenvectors.rows,
+                                      pca_map[blocks].first->mean.cols, pca_map[blocks].first->mean.rows);
+    
+    pca_map[blocks].first->project(*(pca_map[blocks].second), Output);
+
+}
 
 float gist_compare(float *d1, float *d2, int size)
 {
@@ -443,29 +508,29 @@ float gist_compare(float *d1, float *d2, int size)
 
 float gist_compare_angle(float *d1, float *d2, int size)
 {
-    float sum=0, sum2=0;
-    float v;
-
-    for (int i=0; i < size; i++) {
-        sum += d1[i] * d1[i];
-        sum2 += d2[i] * d2[i];
-    }
+    float sum=0, mag1, mag2;
     
-    sum = sqrtf(sum);
-    sum2 = sqrtf(sum2);
+
     
     for (int i=0; i < size; i++) {
-        d1[i] = d1[i] / sum;
-        d2[i] = d2[i] / sum2;
+        mag1 +=  d1[i] * d1[i];
+        mag2 +=  d2[i] * d2[i];
     }
+    
+    mag1 = sqrtf(mag1);
+    mag2 = sqrtf(mag2);
 
-    sum = 0;
     for (int i=0; i < size; i++) {
         sum += d1[i] * d2[i];
     }
     
-    return acosf(sum) * 180.0 / 3.14159265;
+    return acosf(sum/(mag1*mag2)) * 180.0 / 3.14159265;
        
+}
+
+void gist_free(float *g)
+{
+    free(g);
 }
 
 

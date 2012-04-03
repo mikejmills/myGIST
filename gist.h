@@ -19,7 +19,7 @@ void format_image(cv::Mat &input, cv::Mat &output);
 class Gist_Processor
 {
   private:
-    
+    bool               PCA_ENABLED;
     int                nblocks;
     int                *nx, *ny;
     vector<cv::Mat>    GaborResponses;
@@ -47,6 +47,7 @@ class Gist_Processor
     int   Get_Descriptor(float **res, int block, int xshift=0, int yshift=0);
     void  Get_Descriptor(float *res, int blocks, int xshift=0, int yshift=0);
     void  Get_Descriptor_PCA(float *res, int blocks, int xshift=0, int yshift=0);
+    int   Get_Descriptor_PCA(float **res, int blocks, int xshift, int yshift);
     int   Get_Size(int blocks);
 
     void Process(cv::Mat &im);

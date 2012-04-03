@@ -175,6 +175,7 @@ void Gist_Processor::init(cv::Mat &baseim, int max_blocks)
     }
 
     base_descsize = max_blocks*max_blocks*gabors->size();
+    PCA_ENABLED = false;
 }
 
 
@@ -193,6 +194,7 @@ Gist_Processor::Gist_Processor(cv::Mat &baseim, int *blocks, int len)
         pca_map[blocks[i]] = make_pair(PCA_LoadData(blocks[i]), new cv::Mat(1, size, CV_32FC1));
     }
 
+    PCA_ENABLED = true;
 }
 
 Gist_Processor::~Gist_Processor()
@@ -446,6 +448,10 @@ void Gist_Processor::Process(cv::Mat &im)
 
 int Gist_Processor::Get_Descriptor(float **res, int blocks, int xshift, int yshift)
 {
+    if (PCA_ENABLED) 
+        return Get_Descriptor_PCA(res, blocks, xshift, yshift);
+    
+
     int size = blocks*blocks*gabors->size();
 
     *res = (float *) malloc(size*sizeof(float));
@@ -465,7 +471,11 @@ int Gist_Processor::Get_Size(int blocks)
 
 void Gist_Processor::Get_Descriptor(float *res, int blocks, int xshift, int yshift)
 {
-    
+    if (PCA_ENABLED) {
+        Get_Descriptor_PCA(res, blocks, xshift, yshift);
+        return;
+    }
+
     for (int k=0; k < gabors->size(); k++) {
         down_N(res+k*blocks*blocks, GaborResponses[k], blocks, xshift, yshift);
     }
@@ -484,13 +494,27 @@ void Gist_Processor::Get_Descriptor_PCA(float *res, int blocks, int xshift, int 
         down_N(ptr+k*blocks*blocks, GaborResponses[k], blocks, xshift, yshift);
     }
     
-    printf("pca %d %d | %d %d | %d %d\n", pca_map[blocks].second->cols, pca_map[blocks].second->rows, 
-                                      pca_map[blocks].first->eigenvectors.cols, pca_map[blocks].first->eigenvectors.rows,
-                                      pca_map[blocks].first->mean.cols, pca_map[blocks].first->mean.rows);
-    
     pca_map[blocks].first->project(*(pca_map[blocks].second), Output);
 
 }
+
+int Gist_Processor::Get_Descriptor_PCA(float **res, int blocks, int xshift, int yshift)
+{
+
+    *res = (float *) malloc(PCA_DIM*sizeof(float));
+    cv::Mat Output(1, PCA_DIM, CV_32FC1, (void *)(*res));
+
+    float *ptr = (float *)pca_map[blocks].second->data;
+
+    for (int k=0; k < gabors->size(); k++) {
+        down_N(ptr+k*blocks*blocks, GaborResponses[k], blocks, xshift, yshift);
+    }
+    
+    pca_map[blocks].first->project(*(pca_map[blocks].second), Output);
+    printf("HERE %f\n", Output.at<float>(0,0));
+    return PCA_DIM;
+}
+
 
 float gist_compare(float *d1, float *d2, int size)
 {

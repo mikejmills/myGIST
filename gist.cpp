@@ -6,18 +6,18 @@ void format_image(cv::Mat &input, cv::Mat &output)
 
     cv::resize(input, output, cv::Size(320,240));
     cv::cvtColor(output, input, CV_BGR2GRAY);
-    input.convertTo(output, CV_32FC1, (float)1/255);
+    input.convertTo(output, CV_64FC1, (double)1/255);
 }
 
 //
 // Swaps the quadrants of the fft so the zero frequency is in the center
-static void fftshift(float *data, int w, int h)
+static void fftshift(double *data, int w, int h)
 {
     int i, j;
 
-    float *buff = (float *) malloc(w*h*sizeof(float));
+    double *buff = (double *) malloc(w*h*sizeof(double));
 
-    memcpy(buff, data, w*h*sizeof(float));
+    memcpy(buff, data, w*h*sizeof(double));
 
     for(j = 0; j < (h+1)/2; j++)
     {
@@ -58,19 +58,19 @@ vector<cv::Mat *> *create_gabor(int nscales,  int *orientations, int width, int 
 
     vector<cv::Mat *> *Gfs = new vector<cv::Mat *>(nfilters);
     for (int i=0; i < nfilters; i++) {
-        (*Gfs)[i] = new cv::Mat(height, width, CV_32FC1);
+        (*Gfs)[i] = new cv::Mat(height, width, CV_64FC1);
     }
     
-    float **param = (float **) malloc(nscales * nfilters * sizeof(float *));
+    double **param = (double **) malloc(nscales * nfilters * sizeof(double *));
 
     for(i = 0; i < nscales * nfilters; i++) {
-        param[i] = (float *) malloc(4*sizeof(float));
+        param[i] = (double *) malloc(4*sizeof(double));
     }
 
-    float *fx = (float *) malloc(width*height*sizeof(float));
-    float *fy = (float *) malloc(width*height*sizeof(float));
-    float *fr = (float *) malloc(width*height*sizeof(float));
-    float *f  = (float *) malloc(width*height*sizeof(float));
+    double *fx = (double *) malloc(width*height*sizeof(double));
+    double *fy = (double *) malloc(width*height*sizeof(double));
+    double *fr = (double *) malloc(width*height*sizeof(double));
+    double *f  = (double *) malloc(width*height*sizeof(double));
 
     int l = 0;
 
@@ -90,8 +90,8 @@ vector<cv::Mat *> *create_gabor(int nscales,  int *orientations, int width, int 
     {
         for(i = 0; i < width; i++)
         {
-            fx[j*width + i] = (float) i - (float)width/2.0f;
-            fy[j*width + i] = (float) j - (float)height/2.0f;
+            fx[j*width + i] = (double) i - (double)width/2.0f;
+            fy[j*width + i] = (double) j - (double)height/2.0f;
 
             fr[j*width + i] = sqrtf(fx[j*width + i]*fx[j*width + i] + fy[j*width + i]*fy[j*width + i]);
             f[j*width + i]  = atan2f(fy[j*width + i], fx[j*width + i]);
@@ -106,18 +106,18 @@ vector<cv::Mat *> *create_gabor(int nscales,  int *orientations, int width, int 
 
     for(fn = 0; fn < nfilters; fn++)
     {
-        float *f_ptr  = f;
-        float *fr_ptr = fr;
+        double *f_ptr  = f;
+        double *fr_ptr = fr;
 
        // printf("Filter %d %f %f\n", fn, param[fn][3], *f_ptr);
 
-        float *data = (float *)((*Gfs)[fn])->data;
+        double *data = (double *)((*Gfs)[fn])->data;
         
         for(j = 0; j < height; j++)
         {
             for(i = 0; i < width; i++)
             {
-                float tmp = *f_ptr++ + param[fn][3];
+                double tmp = *f_ptr++ + param[fn][3];
 
                 if(tmp < -M_PI) {
                     tmp += 2.0f*M_PI;
@@ -171,7 +171,7 @@ void Gist_Processor::init(cv::Mat &baseim, int max_blocks)
 
     for(int i=0;i<nscales;i++) {
         for (int j=0; j < orientations[i]; j++) 
-            GaborResponses.push_back(cv::Mat(baseim.rows, baseim.cols, CV_32FC1));
+            GaborResponses.push_back(cv::Mat(baseim.rows, baseim.cols, CV_64FC1));
     }
 
     base_descsize = max_blocks*max_blocks*gabors->size();
@@ -191,7 +191,7 @@ Gist_Processor::Gist_Processor(cv::Mat &baseim, int *blocks, int len)
     
     for (int i=0; i < len; i++) {
         size = blocks[i]*blocks[i]*gabors->size();
-        pca_map[blocks[i]] = make_pair(PCA_LoadData(blocks[i]), new cv::Mat(1, size, CV_32FC1));
+        pca_map[blocks[i]] = make_pair(PCA_LoadData(blocks[i]), new cv::Mat(1, size, CV_64FC1));
     }
 
     PCA_ENABLED = true;
@@ -233,7 +233,7 @@ Gist_Processor::~Gist_Processor()
 
 }
 
-void Gist_Processor::down_N(float *res, cv::Mat &src, int N, int cshift, int rshift)
+void Gist_Processor::down_N(double *res, cv::Mat &src, int N, int cshift, int rshift)
 {
     int i, j, k, l;
     
@@ -254,18 +254,18 @@ void Gist_Processor::down_N(float *res, cv::Mat &src, int N, int cshift, int rsh
     {
         for(k = 0; k < N; k++)
         {
-            float mean = 0.0f;
+            double mean = 0.0f;
 
             for(j = ny[l]; j < ny[l+1]; j++)
             {
                 for(i = nx[k]; i < nx[k+1]; i++) {
 
-                    mean += ((float *)src.data)[j*src.cols+i];
+                    mean += ((double *)src.data)[j*src.cols+i];
 
                 }
             }
             
-            float denom = (float)(ny[l+1]-ny[l])*(nx[k+1]-nx[k]);
+            double denom = (double)(ny[l+1]-ny[l])*(nx[k+1]-nx[k]);
 
             res[k*N+l] = mean / denom;
 
@@ -292,9 +292,9 @@ void Gist_Processor::prefilt_init(int width, int height)
     width  = width  + 10;
     height = height + 10;
     
-    fx  = (float *) fftwf_malloc(width*height*sizeof(float));
-    fy  = (float *) fftwf_malloc(width*height*sizeof(float));
-    gfc = (float *) fftwf_malloc(width*height*sizeof(float));
+    fx  = (double *) fftwf_malloc(width*height*sizeof(double));
+    fy  = (double *) fftwf_malloc(width*height*sizeof(double));
+    gfc = (double *) fftwf_malloc(width*height*sizeof(double));
 
     in1 = (fftwf_complex *) fftwf_malloc(width*height*sizeof(fftwf_complex));
     in2 = (fftwf_complex *) fftwf_malloc(width*height*sizeof(fftwf_complex));
@@ -322,16 +322,16 @@ cv::Mat Gist_Processor::prefilt_process(cv::Mat &im, int fc)
 
     //
     // Build whitening filter and apply whitening filter
-    float s1 = fc/sqrt(log(2));
+    double s1 = fc/sqrt(log(2));
     for(j = 0; j < height; j++)
     {
         for(i = 0; i < width; i++)
         {
-            in1[j*width + i][0] = ((float *)pim.data)[j*width+i];
+            in1[j*width + i][0] = ((double *)pim.data)[j*width+i];
             in1[j*width + i][1] = 0.0f;
 
-            fx[j*width + i] = (float) i - width/2.0f;
-            fy[j*width + i] = (float) j - height/2.0f;
+            fx[j*width + i] = (double) i - width/2.0f;
+            fy[j*width + i] = (double) j - height/2.0f;
 
             gfc[j*width + i] = exp(-(fx[j*width + i]*fx[j*width + i] + fy[j*width + i]*fy[j*width + i]) / (s1*s1));
         }
@@ -359,9 +359,9 @@ cv::Mat Gist_Processor::prefilt_process(cv::Mat &im, int fc)
     {
         for(i = 0; i < width; i++)
         {
-            ((float *)pim.data)[j*pim.cols+i] -= in2[j*width+i][0] / (width*height);
+            ((double *)pim.data)[j*pim.cols+i] -= in2[j*width+i][0] / (width*height);
 
-            in1[j*width + i][0] = ((float *)pim.data)[j*pim.cols+i] * ((float *)pim.data)[j*pim.cols+i];
+            in1[j*width + i][0] = ((double *)pim.data)[j*pim.cols+i] * ((double *)pim.data)[j*pim.cols+i];
             in1[j*width + i][1] = 0.0f;
         }
     }
@@ -385,7 +385,7 @@ cv::Mat Gist_Processor::prefilt_process(cv::Mat &im, int fc)
     for(j = 0; j < height; j++)
     {
         for(i = 0; i < width; i++) {
-            ((float *)pim.data)[j*pim.cols+i] = ((float *)pim.data)[j*pim.cols+i] / (0.2f+sqrt(sqrt(in2[j*width+i][0]*in2[j*width+i][0]+in2[j*width+i][1]*in2[j*width+i][1]) / (width*height)));
+            ((double *)pim.data)[j*pim.cols+i] = ((double *)pim.data)[j*pim.cols+i] / (0.2f+sqrt(sqrt(in2[j*width+i][0]*in2[j*width+i][0]+in2[j*width+i][1]*in2[j*width+i][1]) / (width*height)));
         }
     }
     
@@ -408,7 +408,7 @@ void Gist_Processor::Process(cv::Mat &im)
     {
         for(int i = 0; i < width; i++)
         {
-            gin1[j*width + i][0] = ((float*)im.data)[j*im.cols+i];
+            gin1[j*width + i][0] = ((double*)im.data)[j*im.cols+i];
             gin1[j*width + i][1] = 0.0f;
         }
     }
@@ -422,7 +422,7 @@ void Gist_Processor::Process(cv::Mat &im)
         {
             for(int i = 0; i < width; i++)
             {
-                float *data = (float *)((*gabors)[k]->data);
+                double *data = (double *)((*gabors)[k]->data);
 
                 gout2[j*width+i][0] = gout1[j*width+i][0] * data[j*(*gabors)[k]->cols+i];
                 gout2[j*width+i][1] = gout1[j*width+i][1] * data[j*(*gabors)[k]->cols+i];
@@ -434,8 +434,8 @@ void Gist_Processor::Process(cv::Mat &im)
         for(int j = 0; j < height; j++)
         {
             for(int i = 0; i < width; i++) {
-                //((float*)im.data)[j*im.cols+i] 
-                ((float*)GaborResponses[k].data)[j*GaborResponses[k].cols+i] = sqrt(gin2[j*width+i][0]*gin2[j*width+i][0]+gin2[j*width+i][1]*gin2[j*width+i][1])/(width*height);
+                //((double*)im.data)[j*im.cols+i] 
+                ((double*)GaborResponses[k].data)[j*GaborResponses[k].cols+i] = sqrt(gin2[j*width+i][0]*gin2[j*width+i][0]+gin2[j*width+i][1]*gin2[j*width+i][1])/(width*height);
             }
         }
 
@@ -446,7 +446,7 @@ void Gist_Processor::Process(cv::Mat &im)
 
 
 
-int Gist_Processor::Get_Descriptor(float **res, int blocks, int xshift, int yshift)
+int Gist_Processor::Get_Descriptor(double **res, int blocks, int xshift, int yshift)
 {
     if (PCA_ENABLED) 
         return Get_Descriptor_PCA(res, blocks, xshift, yshift);
@@ -454,7 +454,7 @@ int Gist_Processor::Get_Descriptor(float **res, int blocks, int xshift, int yshi
 
     int size = blocks*blocks*gabors->size();
 
-    *res = (float *) malloc(size*sizeof(float));
+    *res = (double *) malloc(size*sizeof(double));
 
     for (int k=0; k < gabors->size(); k++) {
         down_N(*res+k*blocks*blocks, GaborResponses[k], blocks, xshift, yshift);
@@ -469,7 +469,7 @@ int Gist_Processor::Get_Size(int blocks)
 }
 
 
-void Gist_Processor::Get_Descriptor(float *res, int blocks, int xshift, int yshift)
+void Gist_Processor::Get_Descriptor(double *res, int blocks, int xshift, int yshift)
 {
     if (PCA_ENABLED) {
         Get_Descriptor_PCA(res, blocks, xshift, yshift);
@@ -483,12 +483,12 @@ void Gist_Processor::Get_Descriptor(float *res, int blocks, int xshift, int yshi
 }
 
 
-void Gist_Processor::Get_Descriptor_PCA(float *res, int blocks, int xshift, int yshift)
+void Gist_Processor::Get_Descriptor_PCA(double *res, int blocks, int xshift, int yshift)
 {
     
-    cv::Mat Output(1, PCA_DIM, CV_32FC1, (void *)res);
+    cv::Mat Output(1, PCA_DIM, CV_64FC1, (void *)res);
 
-    float *ptr = (float *)pca_map[blocks].second->data;
+    double *ptr = (double *)pca_map[blocks].second->data;
 
     for (int k=0; k < gabors->size(); k++) {
         down_N(ptr+k*blocks*blocks, GaborResponses[k], blocks, xshift, yshift);
@@ -498,28 +498,28 @@ void Gist_Processor::Get_Descriptor_PCA(float *res, int blocks, int xshift, int 
 
 }
 
-int Gist_Processor::Get_Descriptor_PCA(float **res, int blocks, int xshift, int yshift)
+int Gist_Processor::Get_Descriptor_PCA(double **res, int blocks, int xshift, int yshift)
 {
 
-    *res = (float *) malloc(PCA_DIM*sizeof(float));
-    cv::Mat Output(1, PCA_DIM, CV_32FC1, (void *)(*res));
+    *res = (double *) malloc(PCA_DIM*sizeof(double));
+    cv::Mat Output(1, PCA_DIM, CV_64FC1, (void *)(*res));
 
-    float *ptr = (float *)pca_map[blocks].second->data;
+    double *ptr = (double *)pca_map[blocks].second->data;
 
     for (int k=0; k < gabors->size(); k++) {
         down_N(ptr+k*blocks*blocks, GaborResponses[k], blocks, xshift, yshift);
     }
     
     pca_map[blocks].first->project(*(pca_map[blocks].second), Output);
-    printf("HERE %f\n", Output.at<float>(0,0));
+    printf("HERE %f\n", Output.at<double>(0,0));
     return PCA_DIM;
 }
 
 
-float gist_compare(float *d1, float *d2, int size)
+double gist_compare(double *d1, double *d2, int size)
 {
-    float sum=0;
-    float v;
+    double sum=0;
+    double v;
 
     for (int i=0; i < size; i++) {
         v = d1[i] - d2[i];
@@ -530,9 +530,9 @@ float gist_compare(float *d1, float *d2, int size)
     
 }
 
-float gist_compare_angle(float *d1, float *d2, int size)
+double gist_compare_angle(double *d1, double *d2, int size)
 {
-    float sum=0, mag1, mag2;
+    double sum=0, mag1, mag2;
     
 
     
@@ -552,7 +552,7 @@ float gist_compare_angle(float *d1, float *d2, int size)
        
 }
 
-void gist_free(float *g)
+void gist_free(double *g)
 {
     free(g);
 }

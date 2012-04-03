@@ -15,7 +15,7 @@ int main()
 	//cap >> input;
 	input = cv::imread("test.png");
 	
-	float res[PCA_DIM], center[PCA_DIM];
+	double res[PCA_DIM], center[PCA_DIM];
 	int res_size=0;
 	int blocks[3] = {4, 8, 10};
 

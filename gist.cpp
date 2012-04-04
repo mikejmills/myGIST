@@ -511,7 +511,7 @@ int Gist_Processor::Get_Descriptor_PCA(double **res, int blocks, int xshift, int
     }
     
     pca_map[blocks].first->project(*(pca_map[blocks].second), Output);
-    printf("HERE %f\n", Output.at<double>(0,0));
+    
     return PCA_DIM;
 }
 

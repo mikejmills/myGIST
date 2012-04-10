@@ -236,6 +236,9 @@ Gist_Processor::~Gist_Processor()
 void Gist_Processor::down_N(double *res, cv::Mat &src, int N, int cshift, int rshift)
 {
     int i, j, k, l;
+
+    if (cshift > (src.cols/2)) cshift = src.cols/2;
+    if (cshift < -(src.cols/2)) cshift = -src.cols/2;
     
     for(i = 0; i < N+1; i++)
     {

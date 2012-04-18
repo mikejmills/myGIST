@@ -8,6 +8,7 @@
 #include <fftw3.h>
 #include <stdio.h>
 #include "PCA.h"
+#include "/usr/local/include/opencv2/core/types_c.h"
 
 vector<cv::Mat *> *create_gabor(int nscales,  int *orientations, int width, int height);
 double              gist_compare(double *d1, double *d2, int size);
@@ -15,6 +16,7 @@ double              gist_compare_angle(double *d1, double *d2, int size);
 void               gist_free(double *g);
 
 void format_image(cv::Mat &input, cv::Mat &output);
+
 
 class Gist_Processor
 {
@@ -41,7 +43,7 @@ class Gist_Processor
   public:
     int base_descsize;
   	Gist_Processor(cv::Mat &baseim, int blocks);
-    Gist_Processor(cv::Mat &baseim, int *blocks, int len);
+    Gist_Processor(cv::Mat &baseim, long int *blocks, int len);
   	~Gist_Processor();
 
     int   Get_Descriptor(double **res, int block, int xshift=0, int yshift=0);
@@ -80,6 +82,5 @@ class Gist_Processor
     }
     
 };
-
 
 #endif

@@ -176,6 +176,7 @@ void Gist_Processor::init(cv::Mat &baseim, int max_blocks)
 
     base_descsize = max_blocks*max_blocks*gabors->size();
     PCA_ENABLED = false;
+
 }
 
 
@@ -184,15 +185,18 @@ Gist_Processor::Gist_Processor(cv::Mat &baseim, int max_blocks)
     init(baseim, max_blocks);
 }
 
-Gist_Processor::Gist_Processor(cv::Mat &baseim, int *blocks, int len)
+Gist_Processor::Gist_Processor(cv::Mat &baseim, long int *blocks, int len)
 {
     init(baseim, blocks[len-1]);
     int size;
     
     for (int i=0; i < len; i++) {
+        printf("Adding PCA for block %d %d\n", i, blocks[i]);
         size = blocks[i]*blocks[i]*gabors->size();
         pca_map[blocks[i]] = make_pair(PCA_LoadData(blocks[i]), new cv::Mat(1, size, CV_64FC1));
     }
+    
+    printf("PCA init\n");
 
     PCA_ENABLED = true;
 }
@@ -404,9 +408,9 @@ void Gist_Processor::Process(cv::Mat &im)
 {
     int height = im.rows;
     int width  = im.cols;
-
+    
     prefilt_process(im, 5);
-
+    
     for(int j = 0; j < height; j++)
     {
         for(int i = 0; i < width; i++)
@@ -491,7 +495,7 @@ void Gist_Processor::Get_Descriptor_PCA(double *res, int blocks, int xshift, int
     
     cv::Mat Output(1, PCA_DIM, CV_64FC1, (void *)res);
 
-    double *ptr = (double *)pca_map[blocks].second->data;
+    double *ptr = (double *)(pca_map[blocks].second->data);
 
     for (int k=0; k < gabors->size(); k++) {
         down_N(ptr+k*blocks*blocks, GaborResponses[k], blocks, xshift, yshift);
@@ -506,9 +510,15 @@ int Gist_Processor::Get_Descriptor_PCA(double **res, int blocks, int xshift, int
 
     *res = (double *) malloc(PCA_DIM*sizeof(double));
     cv::Mat Output(1, PCA_DIM, CV_64FC1, (void *)(*res));
+    
+    if (pca_map.find(blocks) != pca_map.end()) {
+        printf("FOUND %d\n", blocks);
+    } else {
+        printf("Not Found %d\n", blocks);
+    }
 
-    double *ptr = (double *)pca_map[blocks].second->data;
-
+    double *ptr = (double *)(pca_map[blocks].second->data);
+    
     for (int k=0; k < gabors->size(); k++) {
         down_N(ptr+k*blocks*blocks, GaborResponses[k], blocks, xshift, yshift);
     }

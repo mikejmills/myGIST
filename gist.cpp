@@ -191,12 +191,12 @@ Gist_Processor::Gist_Processor(cv::Mat &baseim, long int *blocks, int len)
     int size;
     
     for (int i=0; i < len; i++) {
-        printf("Adding PCA for block %d %d\n", i, blocks[i]);
+
         size = blocks[i]*blocks[i]*gabors->size();
         pca_map[blocks[i]] = make_pair(PCA_LoadData(blocks[i]), new cv::Mat(1, size, CV_64FC1));
     }
     
-    printf("PCA init\n");
+
 
     PCA_ENABLED = true;
 }
@@ -240,26 +240,69 @@ Gist_Processor::~Gist_Processor()
 void Gist_Processor::down_N(double *res, cv::Mat &src, int N, int cshift, int rshift)
 {
     int i, j, k, l;
-
-    if (cshift > (src.cols/2)) cshift = src.cols/2;
+    int w, ws;
+    /*
+    if (cshift >  (src.cols/2)) cshift = src.cols/2;
     if (cshift < -(src.cols/2)) cshift = -src.cols/2;
+    
     
     for(i = 0; i < N+1; i++)
     {
         if (cshift > 0) {
-            nx[i] = (i*(src.cols-cshift)/(N)) + cshift;
-            ny[i] = (i*(src.rows-rshift)/(N)) + rshift;
+            nx[i] = i*((src.cols-cshift)/N) + cshift;
+            ny[i] = i*((src.rows-rshift)/N) + rshift;
         } else {
-            nx[i] = (i*(src.cols+cshift)/(N));
-            ny[i] = (i*(src.rows+rshift)/(N));
+            nx[i] = i*((src.cols+cshift)/N);
+            ny[i] = i*((src.rows+rshift)/N);
         }
-        
+        printf("%d ", nx[i]);
     }
-   
+    printf("\n");
+    */
     
-    for(l = 0; l < N; l++)
+    /*cshift += src.cols/2;
+    
+
+    if (cshift < -20)        cshift = 20;
+    if (cshift > src.cols - 20) cshift = src.cols - 20;
+    
+
+    if (cshift > (src.cols/2)) {
+        w = (src.cols - cshift);
+    } else {
+        w = cshift;
+    }
+
+    ws = (w*2)/N;
+
+    for (i=0; i < N + 1; i++) {
+        
+        if (cshift > (src.cols/2)) {
+
+            nx[i] = i*ws + (cshift - w);
+            if (i == N) nx[i] = 320;
+        } else {
+            if (i == 0) nx[i] = 0;
+            nx[i] = i*ws;
+        }
+
+        ny[i] = i*(src.rows/N);
+        //printf("%d i %d nx %d w %d ws %d cshift %d\n", N, i, nx[i], w, ws, cshift);
+        printf("%d ", nx[i]);
+
+    }
+    printf("    w %d ws %d\n", w, ws);
+    */
+
+    for(i = 0; i < N+1; i++)
     {
-        for(k = 0; k < N; k++)
+        nx[i] = i*((src.cols)/N);
+        ny[i] = i*((src.rows)/N);
+    }
+
+    for(k = 0; k < N; k++)
+    {
+        for(l = 0; l < N; l++)
         {
             double mean = 0.0f;
 
@@ -511,12 +554,7 @@ int Gist_Processor::Get_Descriptor_PCA(double **res, int blocks, int xshift, int
     *res = (double *) malloc(PCA_DIM*sizeof(double));
     cv::Mat Output(1, PCA_DIM, CV_64FC1, (void *)(*res));
     
-    if (pca_map.find(blocks) != pca_map.end()) {
-        printf("FOUND %d\n", blocks);
-    } else {
-        printf("Not Found %d\n", blocks);
-    }
-
+    
     double *ptr = (double *)(pca_map[blocks].second->data);
     
     for (int k=0; k < gabors->size(); k++) {

@@ -7,7 +7,6 @@ class Gist_Processor(object):
     def __init__(self, im, blocks):
 
     	if isinstance(blocks, numpy.ndarray):
-    		print "PCA"
     		self.obj = libgist.GIST_PCA_new(im, blocks)
     	else:	
         	self.obj = libgist.GIST_basic_new(im, blocks)
@@ -22,7 +21,7 @@ class Gist_Processor(object):
     	libgist.GIST_Get_Descriptor_Reuse(desc, blocks, x, y, self.obj)
 
 
-
+'''
 if __name__=="__main__":
 	print "GIST Tests"
 	cam = cv2.VideoCapture(0)
@@ -48,7 +47,7 @@ if __name__=="__main__":
 		cv2.waitKey(1)
 
 	
-	'''
+	
 	g.Process(im)
 
 	desc  = g.Get_Descriptor(4)
@@ -58,4 +57,4 @@ if __name__=="__main__":
 	g.Process(im2)
 	g.Get_Descriptor_Reuse(desc, 4) 
 	print desc
-	'''
+'''

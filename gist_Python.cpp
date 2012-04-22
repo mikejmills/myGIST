@@ -25,7 +25,6 @@ PyObject* GIST_basic_new(PyObject* obj, PyObject*args)
 	int blocks;
 	cv::Mat output;
 	
-	cv::namedWindow("test",1);
 
 	if (!PyArg_ParseTuple(args, "O!i",  &PyArray_Type,  &baseim, &blocks))  return NULL;
 	Get_Mat(baseim);
@@ -41,8 +40,6 @@ PyObject* GIST_PCA_new(PyObject* obj, PyObject*args)
 	PyArrayObject *baseim, *blocks;
 	
 	cv::Mat output;
-	
-	cv::namedWindow("test",1);
 
 	if (!PyArg_ParseTuple(args, "O!O!",  &PyArray_Type,  &baseim, &PyArray_Type,  &blocks))  return NULL;
 

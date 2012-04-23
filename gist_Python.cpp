@@ -84,10 +84,12 @@ PyObject* GIST_Get_Descriptor_Alloc(PyObject* obj, PyObject*args)
 	pydesc = (PyArrayObject *) PyArray_FromDims(1, dims, NPY_DOUBLE);
 
 
-	for (int i=0; i < size; i++) {
+	/*for (int i=0; i < size; i++) {
 		((double *)(pydesc->data))[i] = desc[i];
-	}
-	
+	}*/
+
+	memmove((void *)pydesc->data, (void *)desc, sizeof(double) * dims[0]);
+	//pydesc->data = (char *)desc;
 	gist_free(desc);
 	
 	return  PyArray_Return(pydesc);
@@ -102,8 +104,8 @@ PyObject* GIST_Get_Descriptor_Reuse(PyObject* obj, PyObject*args)
 	
 	if (!PyArg_ParseTuple(args, "O!iiil", &PyArray_Type, &pydesc, &blocks, &x, &y, ((long int) &gp)) )  return NULL;
 	
-	gp->Get_Descriptor(((double *)(pydesc->data)), blocks, x, y);
-	
+	gp->Get_Descriptor((double *)(pydesc->data), blocks, x, y);
+	Py_INCREF(Py_None);
 	return  Py_None; //PyArray_Return(pydesc);
 }
 

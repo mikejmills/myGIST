@@ -241,8 +241,8 @@ void Gist_Processor::down_N(double *res, cv::Mat &src, int N, int cshift, int rs
 {
     int i, j, k, l;
     int w, ws;
-    /*
-    if (cshift >  (src.cols/2)) cshift = src.cols/2;
+    
+    /*if (cshift >=  (src.cols/2)) cshift = (src.cols/2-1);
     if (cshift < -(src.cols/2)) cshift = -src.cols/2;
     
     
@@ -296,14 +296,13 @@ void Gist_Processor::down_N(double *res, cv::Mat &src, int N, int cshift, int rs
 
     for(i = 0; i < N+1; i++)
     {
-        nx[i] = i*((src.cols)/N);
-        ny[i] = i*((src.rows)/N);
+        nx[i] = i*src.cols/(N);
+        ny[i] = i*src.rows/(N);
     }
 
-    for(k = 0; k < N; k++)
-    {
-        for(l = 0; l < N; l++)
-        {
+    for(k = 0; k < N; k++) {
+        for(l = 0; l < N; l++) {
+
             double mean = 0.0f;
 
             for(j = ny[l]; j < ny[l+1]; j++)

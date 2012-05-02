@@ -9,6 +9,10 @@
 #include <stdio.h>
 #include "PCA.h"
 #include "/usr/local/include/opencv2/core/types_c.h"
+#include <Python.h>
+
+#define IMAGE_WIDTH  640
+#define IMAGE_HEIGHT 480
 
 vector<cv::Mat *> *create_gabor(int nscales,  int *orientations, int width, int height);
 double              gist_compare(double *d1, double *d2, int size);
@@ -21,6 +25,7 @@ void format_image(cv::Mat &input, cv::Mat &output);
 class Gist_Processor
 {
   private:
+    
     bool               PCA_ENABLED;
     int                nblocks;
     int                *nx, *ny;
@@ -41,6 +46,7 @@ class Gist_Processor
 
 
   public:
+    bool PCA_Test() { return PCA_ENABLED; }
     int base_descsize;
   	Gist_Processor(cv::Mat &baseim, int blocks);
     Gist_Processor(cv::Mat &baseim, long int *blocks, int len);

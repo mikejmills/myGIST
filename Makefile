@@ -11,8 +11,8 @@ LDFLAGS=-lpthread `pkg-config opencv --libs`
 
 #Check Arch Mac
 ifeq ($(M_ARCH), $(MAC_ARCH))  
-CFLAGS=$(BCFLAGS)  -I/usr/local/include/opencv -I/usr/include/python2.7/ -I/Library/Python/2.7/site-packages/numpy/core/include  -Wall -Wno-sign-compare -g
-LDFLAGS=-lpthread /usr/local/lib/libopencv_core.dylib /usr/local/lib/libopencv_highgui.dylib  /usr/local/lib/libopencv_imgproc.dylib -L/Library/Python/2.7/site-packages/numpy/core/include/numpy/ -lfftw3f -lpython2.7
+CFLAGS=$(BCFLAGS)  -I/usr/local/include/opencv -I/usr/include/python2.7/ -I/Library/Python/2.7/site-packages/numpy/core/include -I/usr/local/include/  -Wall -Wno-sign-compare -g
+LDFLAGS=-lpthread /usr/local/lib/libopencv_core.dylib /usr/local/lib/libopencv_highgui.dylib  /usr/local/lib/libopencv_imgproc.dylib -L/Library/Python/2.7/site-packages/numpy/core/include/numpy/ -L/usr/local/lib/ -lfftw3f -lpython2.7
 endif
 
 SOURCES= gist.cpp main.cpp PCA.cpp ../GISTHoming/alglib/*.o

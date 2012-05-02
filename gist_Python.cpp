@@ -17,21 +17,30 @@
         step[1] = (size_t) _strides[1];\
         cv::Mat tmp(2, size, 16, PyArray_DATA(matin), step);
 
+cv::Mat tmp(IMAGE_HEIGHT, IMAGE_WIDTH, CV_32FC1, NULL);
+Gist_Processor gp(tmp, 10);
 
+/*
 PyObject* GIST_basic_new(PyObject* obj, PyObject*args)
 {
 	
 	PyArrayObject *baseim;
-	int blocks;
+	int     blocks;
 	cv::Mat output;
 	
 
-	if (!PyArg_ParseTuple(args, "O!i",  &PyArray_Type,  &baseim, &blocks))  return NULL;
+	if (!PyArg_ParseTuple(args, "O!i",  &PyArray_Type, &baseim, &blocks))  return NULL;
+	Py_INCREF(baseim);
+	
 	Get_Mat(baseim);
 	format_image(tmp, output);
-    Gist_Processor *gp = new Gist_Processor(output, blocks);
     
-    return Py_BuildValue("l", (long int)gp);
+    //Gist_Processor *gp = new Gist_Processor(output, blocks);
+
+    //printf("Creation %d %d %d %d\n", sizeof(Gist_Processor *), sizeof(long), sizeof(long int), sizeof(long long int));
+	Py_DECREF(baseim);
+	
+    return Py_BuildValue("k", (unsigned long int)100);
 }
 
 PyObject* GIST_PCA_new(PyObject* obj, PyObject*args)
@@ -42,79 +51,101 @@ PyObject* GIST_PCA_new(PyObject* obj, PyObject*args)
 	cv::Mat output;
 
 	if (!PyArg_ParseTuple(args, "O!O!",  &PyArray_Type,  &baseim, &PyArray_Type,  &blocks))  return NULL;
-
+	Py_INCREF(baseim);
+	Py_INCREF(blocks);
+	
 	Get_Mat(baseim);
 	format_image(tmp, output);
-    
-    Gist_Processor *gp = new Gist_Processor(output, (long int *)(blocks->data), (int)blocks->dimensions[1]);
-    
-    return Py_BuildValue("l", (long int)gp);
+
+    //Gist_Processor *gp = new Gist_Processor(output, (long int *)(blocks->data), (int)blocks->dimensions[1]);
+	
+	Py_DECREF(blocks);
+    Py_DECREF(baseim);
+	    
+    return Py_BuildValue("k", (unsigned long int)100);
 }
+*/
 
 PyObject* GIST_Process(PyObject* obj, PyObject*args)
 {
-	PyArrayObject *imarray;
-	Gist_Processor *gp;
+	cv::Mat        output;
+	PyArrayObject  *imarray;
 
-	if (!PyArg_ParseTuple(args, "O!l",  &PyArray_Type,  &imarray,  ((long int) &gp)))  return NULL;
+	if (!PyArg_ParseTuple(args, "O!",  &PyArray_Type,  &imarray))  {
+		printf("FAILED PROCESSING Parsing\n");
+		return NULL;
+	}
+
+	Py_INCREF(imarray);
 
 	Get_Mat(imarray);
-	cv::Mat output;
-	
 	format_image(tmp, output);
-	gp->Process(output);
+	gp.Process(output);
 	
+	Py_DECREF(imarray);
+	
+
+	Py_INCREF(Py_None);
 	return Py_None;
 }
 
 PyObject* GIST_Get_Descriptor_Alloc(PyObject* obj, PyObject*args)
 {
-	Gist_Processor *gp;
+	
 	PyArrayObject  *pydesc;
+	//PyObject *pydesc;
+
 	int blocks, x, y;
 	double *desc;
 
-	int dims[1];
+	int dims[2];
 	
-	if (!PyArg_ParseTuple(args, "iiil", &blocks, &x, &y, ((long int) &gp)) )  return NULL;
+	if (!PyArg_ParseTuple(args, "iii", &blocks, &x, &y )) {
+		printf("Failed Descriptor Alloc Parse\n");
+		return NULL;
+	}
 	
-	int size = gp->Get_Descriptor(&desc, blocks, x, y);
+	int size = gp.Get_Descriptor(&desc, blocks, x, y);
+
+	
 	dims[0] = size;
+	dims[1] = 0;
 
-	pydesc = (PyArrayObject *) PyArray_FromDims(1, dims, NPY_DOUBLE);
-
-
-	/*for (int i=0; i < size; i++) {
-		((double *)(pydesc->data))[i] = desc[i];
-	}*/
-
-	memmove((void *)pydesc->data, (void *)desc, sizeof(double) * dims[0]);
-	//pydesc->data = (char *)desc;
-	gist_free(desc);
+	pydesc = (PyArrayObject*)PyArray_FromDims(1, dims, NPY_DOUBLE);
+	if (pydesc == NULL) printf("Error allocating Array\n");
 	
+	Py_INCREF(pydesc);
+        	
+	
+	memmove((void *)pydesc->data, (void *)desc, sizeof(double) * dims[0]);
+
+	gist_free(desc);
+	Py_DECREF(pydesc);
+
 	return  PyArray_Return(pydesc);
+	
 }
 
 PyObject* GIST_Get_Descriptor_Reuse(PyObject* obj, PyObject*args)
 {
-	Gist_Processor *gp;
 	PyArrayObject  *pydesc;
 
 	int blocks, x, y;
 	
-	if (!PyArg_ParseTuple(args, "O!iiil", &PyArray_Type, &pydesc, &blocks, &x, &y, ((long int) &gp)) )  return NULL;
+	if (!PyArg_ParseTuple(args, "O!iii", &PyArray_Type, &pydesc, &blocks, &x, &y ))  return NULL;
 	
-	gp->Get_Descriptor((double *)(pydesc->data), blocks, x, y);
+	gp.Get_Descriptor((double *)(pydesc->data), blocks, x, y);
+	
 	Py_INCREF(Py_None);
-	return  Py_None; //PyArray_Return(pydesc);
+	return Py_None;
 }
 
 
 
 extern "C" {
 	static PyMethodDef libgistMethods[] = {
-		{"GIST_basic_new",  GIST_basic_new, METH_VARARGS},
-		{"GIST_PCA_new",    GIST_PCA_new, METH_VARARGS},
+		/*{"GIST_basic_new",  GIST_basic_new, METH_VARARGS},
+		{"GIST_PCA_new",    GIST_PCA_new, METH_VARARGS},*/
 		{"GIST_Process",    GIST_Process, METH_VARARGS},
 		{"GIST_Get_Descriptor_Alloc", GIST_Get_Descriptor_Alloc, METH_VARARGS},
 		{"GIST_Get_Descriptor_Reuse", GIST_Get_Descriptor_Reuse, METH_VARARGS},
@@ -125,6 +156,7 @@ extern "C" {
 
 	void initlibgist()  {
 		(void) Py_InitModule("libgist", libgistMethods);
+		Py_Initialize();
 		import_array();  // Must be present for NumPy.  Called first after above line.
 	}
 }

@@ -134,25 +134,29 @@ int main()
 	//Get_Descriptor_PCA(float *res, int blocks, int xshift, int yshift)
 
 	proc.Process(output);
-	//proc.Get_Descriptor_PCA(center, 4, 0, 0);
+	res_size = proc.Get_Descriptor(&res, 10*20,0,0);
+	/*//proc.Get_Descriptor_PCA(center, 4, 0, 0);
 	
 	res_size = proc.Get_Descriptor(&center[0], 4, 0);
 	res_size = proc.Get_Descriptor(&center[1], 8, 0);
 	res_size = proc.Get_Descriptor(&center[2], 12, 0);
 
-	input = cv::imread("left.jpg");
+	input = cv::imread("../HallwayDataset/image0287.png");
 	cv::imshow("other", input);
+
 	format_image(input, output);
-	
 	proc.Process(output);
+	
+	res_size = proc.Get_Descriptor(&res, (1)*4, 0);
+	for (int i=0; i < res_size; i++) {	
+		printf("%d %lf\n", i, res[i]);
+	}
 
 	int min_shift;
 	double min_sim;
 
-	Min_Similarity(&proc, output.cols, center, &min_shift, &min_sim);
+	/*Min_Similarity(&proc, output.cols, center, &min_shift, &min_sim);
 	printf("min_shift %d min_sim %lf\n", min_shift, min_sim);
-	min_sim = FLT_MAX;
-	return 0;
 	for (int b=0; b < 3; b++){
 		min_sim = FLT_MAX;
 		for (int i=-160; i < 160; i++) {
@@ -168,7 +172,7 @@ int main()
 	}
 	
 	cv::waitKey(1);
-	
+	*/
 	
 	sleep(60);
 	

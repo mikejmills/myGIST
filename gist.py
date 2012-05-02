@@ -2,6 +2,8 @@ import cv2
 import numpy
 import libgist
 import types
+from numpy import *
+
 
 def Get_ColRange(img_width, blks, cshift):
 
@@ -20,6 +22,7 @@ def Get_ColRange(img_width, blks, cshift):
 		return (range(col, blks, 1), partial)
 
 	return (range(0, blks,1), 1)
+	
 
 def Get_ShiftDesc(img_width, blks, desc, c_pixel):
 	
@@ -47,22 +50,41 @@ def Get_ShiftDesc(img_width, blks, desc, c_pixel):
 
 #######################################################################################
 class Gist_Processor(object):
-    def __init__(self, im, blocks):
-
-    	if isinstance(blocks, numpy.ndarray):
-    		self.obj = libgist.GIST_PCA_new(im, blocks)
-    	else:	
-        	self.obj = libgist.GIST_basic_new(im, blocks)
+    	#if isinstance(blocks, numpy.ndarray):
+    	#	self.obj = libgist.GIST_PCA_new(im, blocks)
+    	#else:	
+        #	self.obj = libgist.GIST_basic_new(im, blocks)
 
     def Process(self, im):
-    	libgist.GIST_Process(im, self.obj)
+    	libgist.GIST_Process(im)
 
     def Get_Descriptor(self, blocks, x=0, y=0):
-    	return libgist.GIST_Get_Descriptor_Alloc(blocks, x, y, self.obj)
+    	return libgist.GIST_Get_Descriptor_Alloc(blocks, x, y)
 
     def Get_Descriptor_Reuse(self, desc, blocks, x=0, y=0):
-    	libgist.GIST_Get_Descriptor_Reuse(desc, blocks, x, y, self.obj)
+    	libgist.GIST_Get_Descriptor_Reuse(desc, blocks, x, y)
 
+    def Get_Shifts(self, im, xshifts, blocks):
+    	(rows, cols, depth) = im.shape
+    	shftdesc = {}
+
+    	for x in xshifts:
+    		if x > 0:
+    			shiftim = delete(im, s_[0:x], axis=1)
+    		elif x == 0:
+    			shiftim = im
+    		else:
+    			shiftim = delete(im, s_[abs(x):cols], axis=1)
+    		
+    		print x, shiftim.shape
+    		cv2.imshow("test", shiftim)
+    		cv2.waitKey()
+    		self.Process(shiftim)
+    		shftdesc[x] = self.Get_Descriptor(blocks)
+
+    	return shftdesc
+
+    
     #def Get_Descriptor_Shift(self, desc=None):
 
     

@@ -4,7 +4,7 @@ void format_image(cv::Mat &input, cv::Mat &output)
 {
     cv::Mat gray, tmp;
 
-    cv::resize(input, output, cv::Size(320,240));
+    cv::resize(input, output, cv::Size(IMAGE_WIDTH,IMAGE_HEIGHT));
     cv::cvtColor(output, input, CV_BGR2GRAY);
     input.convertTo(output, CV_64FC1, (double)1/255);
 }
@@ -175,7 +175,9 @@ void Gist_Processor::init(cv::Mat &baseim, int max_blocks)
     }
 
     base_descsize = max_blocks*max_blocks*gabors->size();
+
     PCA_ENABLED = false;
+
 
 }
 
@@ -197,12 +199,13 @@ Gist_Processor::Gist_Processor(cv::Mat &baseim, long int *blocks, int len)
     }
     
 
-
+    
     PCA_ENABLED = true;
 }
 
 Gist_Processor::~Gist_Processor()
 {
+    printf("Cleanup GIST\n");
     delete gabors;
 
     fftwf_free(fx);
@@ -235,64 +238,13 @@ Gist_Processor::~Gist_Processor()
         delete (*it).second.second;
     }
 
+
 }
 
 void Gist_Processor::down_N(double *res, cv::Mat &src, int N, int cshift, int rshift)
 {
     int i, j, k, l;
-    int w, ws;
     
-    /*if (cshift >=  (src.cols/2)) cshift = (src.cols/2-1);
-    if (cshift < -(src.cols/2)) cshift = -src.cols/2;
-    
-    
-    for(i = 0; i < N+1; i++)
-    {
-        if (cshift > 0) {
-            nx[i] = i*((src.cols-cshift)/N) + cshift;
-            ny[i] = i*((src.rows-rshift)/N) + rshift;
-        } else {
-            nx[i] = i*((src.cols+cshift)/N);
-            ny[i] = i*((src.rows+rshift)/N);
-        }
-        printf("%d ", nx[i]);
-    }
-    printf("\n");
-    */
-    
-    /*cshift += src.cols/2;
-    
-
-    if (cshift < -20)        cshift = 20;
-    if (cshift > src.cols - 20) cshift = src.cols - 20;
-    
-
-    if (cshift > (src.cols/2)) {
-        w = (src.cols - cshift);
-    } else {
-        w = cshift;
-    }
-
-    ws = (w*2)/N;
-
-    for (i=0; i < N + 1; i++) {
-        
-        if (cshift > (src.cols/2)) {
-
-            nx[i] = i*ws + (cshift - w);
-            if (i == N) nx[i] = 320;
-        } else {
-            if (i == 0) nx[i] = 0;
-            nx[i] = i*ws;
-        }
-
-        ny[i] = i*(src.rows/N);
-        //printf("%d i %d nx %d w %d ws %d cshift %d\n", N, i, nx[i], w, ws, cshift);
-        printf("%d ", nx[i]);
-
-    }
-    printf("    w %d ws %d\n", w, ws);
-    */
 
     for(i = 0; i < N+1; i++)
     {
@@ -300,24 +252,22 @@ void Gist_Processor::down_N(double *res, cv::Mat &src, int N, int cshift, int rs
         ny[i] = i*src.rows/(N);
     }
 
-    for(k = 0; k < N; k++) {
-        for(l = 0; l < N; l++) {
+    for(l = 0; l < N; l++) { 
+        for(k = 0; k < N; k++) {           
 
-            double mean = 0.0f;
+            double mean = 0.0;
 
             for(j = ny[l]; j < ny[l+1]; j++)
             {
                 for(i = nx[k]; i < nx[k+1]; i++) {
-
                     mean += ((double *)src.data)[j*src.cols+i];
-
                 }
             }
             
             double denom = (double)(ny[l+1]-ny[l])*(nx[k+1]-nx[k]);
 
             res[k*N+l] = mean / denom;
-
+            
         }
     }
 }
@@ -450,7 +400,7 @@ void Gist_Processor::Process(cv::Mat &im)
 {
     int height = im.rows;
     int width  = im.cols;
-    
+  
     prefilt_process(im, 5);
     
     for(int j = 0; j < height; j++)
@@ -497,16 +447,25 @@ void Gist_Processor::Process(cv::Mat &im)
 
 int Gist_Processor::Get_Descriptor(double **res, int blocks, int xshift, int yshift)
 {
-    if (PCA_ENABLED) 
+    if (nblocks < blocks) {
+        
+        nblocks = blocks;
+        nx   =   (int *) realloc(nx,(blocks+1)*sizeof(int));
+        ny   =   (int *) realloc(ny,(blocks+1)*sizeof(int));
+        
+    }
+
+    if (PCA_ENABLED) {
         return Get_Descriptor_PCA(res, blocks, xshift, yshift);
-    
+
+    }
 
     int size = blocks*blocks*gabors->size();
 
     *res = (double *) malloc(size*sizeof(double));
 
     for (int k=0; k < gabors->size(); k++) {
-        down_N(*res+k*blocks*blocks, GaborResponses[k], blocks, xshift, yshift);
+        down_N((*res)+k*blocks*blocks, GaborResponses[k], blocks, xshift, yshift);
     }
 
     return size;
@@ -605,6 +564,7 @@ double gist_compare_angle(double *d1, double *d2, int size)
 void gist_free(double *g)
 {
     free(g);
+    printf("Free GIST\n");
 }
 
 

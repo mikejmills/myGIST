@@ -245,17 +245,84 @@ void Gist_Processor::down_N(double *res, cv::Mat &src, int N, int cshift, int rs
 {
     int i, j, k, l;
     
-
+    /*
     for(i = 0; i < N+1; i++)
     {
         nx[i] = i*src.cols/(N);
         ny[i] = i*src.rows/(N);
     }
+    */
+    
+    
+    int width = 0;
+    if (cshift < 0) {
+        width = (cshift + (src.cols/2)) * 2;
+        nx[0] = 0;
 
-    for(l = 0; l < N; l++) { 
-        for(k = 0; k < N; k++) {           
+        width = width/N;
+        
+        for(i = 1; i < N+1; i++)
+        {
+            nx[i] = nx[i-1] + width;
+            ny[i] = i*src.rows/(N);
+        }
 
-            double mean = 0.0;
+    }
+
+    if (cshift > 0) {
+        cshift = -cshift;
+        width = (cshift + (src.cols/2)) * 2;
+        nx[N+1] = src.cols;
+        
+        
+        width = width/N;
+
+        for(i = N-1; i > -1; i--)
+        {
+            nx[i] = nx[i+1] - width;
+            ny[i] = i*src.rows/(N);
+        }
+
+        
+    }
+
+    if (cshift == 0) {
+        width = src.cols;
+        nx[0] = 0;
+        width = width/N;
+        for(i = 1; i < N+1; i++)
+        {
+            nx[i] = nx[i-1] + width;
+            ny[i] = i*src.rows/(N);
+
+        }
+    }
+
+    //printf("%d %d\n", nx[0], nx[i-1]);  
+    //if (cshift >=  (src.cols/2)) cshift = (src.cols/2);
+    //if (cshift <  -(src.cols/2)) cshift = -src.cols/2;
+     
+    /*
+    for(i = 0; i < N+1; i++)
+    {
+        if (cshift > 0) {
+            nx[i] = i*((src.cols-cshift)/N) + cshift;
+            ny[i] = i*((src.rows-rshift)/N) + rshift;
+        } else {
+            nx[i] = i*((src.cols+cshift)/N);
+            ny[i] = i*((src.rows+rshift)/N);
+        }
+
+    }*/
+
+    
+
+    
+    for(k = 0; k < N; k++) {           
+    
+         for(l = 0; l < N; l++) { 
+
+           double mean = 0.0;
 
             for(j = ny[l]; j < ny[l+1]; j++)
             {
@@ -464,6 +531,8 @@ int Gist_Processor::Get_Descriptor(double **res, int blocks, int xshift, int ysh
 
     *res = (double *) malloc(size*sizeof(double));
 
+
+    
     for (int k=0; k < gabors->size(); k++) {
         down_N((*res)+k*blocks*blocks, GaborResponses[k], blocks, xshift, yshift);
     }
@@ -483,6 +552,8 @@ void Gist_Processor::Get_Descriptor(double *res, int blocks, int xshift, int ysh
         Get_Descriptor_PCA(res, blocks, xshift, yshift);
         return;
     }
+    
+    
 
     for (int k=0; k < gabors->size(); k++) {
         down_N(res+k*blocks*blocks, GaborResponses[k], blocks, xshift, yshift);
@@ -564,7 +635,6 @@ double gist_compare_angle(double *d1, double *d2, int size)
 void gist_free(double *g)
 {
     free(g);
-    printf("Free GIST\n");
 }
 
 

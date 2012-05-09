@@ -18,8 +18,9 @@
         cv::Mat tmp(2, size, 16, PyArray_DATA(matin), step);
 
 cv::Mat tmp(IMAGE_HEIGHT, IMAGE_WIDTH, CV_32FC1, NULL);
-Gist_Processor gp(tmp, 10);
-
+//long int blocks[] = { 4, 8, 10};
+//Gist_Processor gp(tmp, blocks, 3);
+Gist_Processor gp(tmp, 4);
 /*
 PyObject* GIST_basic_new(PyObject* obj, PyObject*args)
 {

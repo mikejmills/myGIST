@@ -11,8 +11,8 @@
 #include "/usr/local/include/opencv2/core/types_c.h"
 #include <Python.h>
 
-#define IMAGE_WIDTH  640
-#define IMAGE_HEIGHT 480
+#define IMAGE_WIDTH  320
+#define IMAGE_HEIGHT 240
 
 vector<cv::Mat *> *create_gabor(int nscales,  int *orientations, int width, int height);
 double              gist_compare(double *d1, double *d2, int size);

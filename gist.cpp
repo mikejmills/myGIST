@@ -245,43 +245,45 @@ void Gist_Processor::down_N(double *res, cv::Mat &src, int N, int cshift, int rs
 {
     int i, j, k, l;
     
-    /*
+    
     for(i = 0; i < N+1; i++)
     {
         nx[i] = i*src.cols/(N);
         ny[i] = i*src.rows/(N);
     }
-    */
+    
     
     
     int width = 0;
     if (cshift < 0) {
-        width = (cshift + (src.cols/2)) * 2;
-        nx[0] = 0;
 
-        width = width/N;
+        width = cshift;
+        nx[N] = (src.cols/2);
         
+        width = width/N;
+
+        for(i = N-1; i > -1; i--)
+        {
+            nx[i] = nx[i+1] + width;
+            ny[i] = i*src.rows/(N);
+        }
+        
+
+    }
+
+    if (cshift > 0) {
+        width = cshift;
+        nx[0] = src.cols/2;
+        
+        
+        width = width/N;
+
         for(i = 1; i < N+1; i++)
         {
             nx[i] = nx[i-1] + width;
             ny[i] = i*src.rows/(N);
         }
 
-    }
-
-    if (cshift > 0) {
-        cshift = -cshift;
-        width = (cshift + (src.cols/2)) * 2;
-        nx[N+1] = src.cols;
-        
-        
-        width = width/N;
-
-        for(i = N-1; i > -1; i--)
-        {
-            nx[i] = nx[i+1] - width;
-            ny[i] = i*src.rows/(N);
-        }
 
         
     }
@@ -297,7 +299,7 @@ void Gist_Processor::down_N(double *res, cv::Mat &src, int N, int cshift, int rs
 
         }
     }
-
+    
     //printf("%d %d\n", nx[0], nx[i-1]);  
     //if (cshift >=  (src.cols/2)) cshift = (src.cols/2);
     //if (cshift <  -(src.cols/2)) cshift = -src.cols/2;

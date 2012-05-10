@@ -245,35 +245,36 @@ void Gist_Processor::down_N(double *res, cv::Mat &src, int N, int cshift, int rs
 {
     int i, j, k, l;
     
-    
+    /*
     for(i = 0; i < N+1; i++)
     {
         nx[i] = i*src.cols/(N);
         ny[i] = i*src.rows/(N);
-    }
+    }*/
     
     
     
     int width = 0;
     if (cshift < 0) {
 
-        width = cshift;
-        nx[N] = (src.cols/2);
+        width = cshift - (src.cols/2);
+        nx[N] = (src.cols);
         
         width = width/N;
 
         for(i = N-1; i > -1; i--)
         {
             nx[i] = nx[i+1] + width;
+            printf("- i %d  nx %d width %d\n", i, nx[i], width*N);
             ny[i] = i*src.rows/(N);
         }
-        
+        printf("\n");
 
     }
 
     if (cshift > 0) {
-        width = cshift;
-        nx[0] = src.cols/2;
+        width = cshift + (src.cols/2);
+        nx[0] = 0;
         
         
         width = width/N;
@@ -281,10 +282,11 @@ void Gist_Processor::down_N(double *res, cv::Mat &src, int N, int cshift, int rs
         for(i = 1; i < N+1; i++)
         {
             nx[i] = nx[i-1] + width;
+            printf("+ i %d  nx %d width %d\n", i, nx[i], width*N);
             ny[i] = i*src.rows/(N);
         }
 
-
+        printf("\n");
         
     }
 

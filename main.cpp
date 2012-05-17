@@ -134,7 +134,8 @@ int main()
 	//Get_Descriptor_PCA(float *res, int blocks, int xshift, int yshift)
 
 	proc.Process(output);
-	res_size = proc.Get_Descriptor(&res, 10*20,0,0);
+	res_size = proc.Get_Descriptor(&res, 4,0,0);
+	
 	/*//proc.Get_Descriptor_PCA(center, 4, 0, 0);
 	
 	res_size = proc.Get_Descriptor(&center[0], 4, 0);

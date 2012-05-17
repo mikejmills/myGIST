@@ -30,7 +30,9 @@ class Gist_Processor
     int                nblocks;
     int                *nx, *ny;
     vector<cv::Mat>    GaborResponses;
+    vector<cv::Mat>    GaborResponsesInts;
     vector<cv::Mat *>  *gabors;
+
   	map<int, pair<cv::PCA *, cv::Mat *> > pca_map;
     map<int, pair<cv::PCA *, cv::Mat *> >::iterator it;
 

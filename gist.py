@@ -5,86 +5,30 @@ import types
 from numpy import *
 
 
-def Get_ColRange(img_width, blks, cshift):
-
-
-	bwth = img_width/blks
-	col = cshift/(bwth)
-	h = img_width/2
-	print "col", col
-
-	if cshift < h:
-		partial = float(cshift - col*bwth)/bwth
-		return (range(0,col+1,1), partial)
-
-	if cshift > h:
-		partial = float((col+1)*bwth - cshift)/bwth
-		return (range(col, blks, 1), partial)
-
-	return (range(0, blks,1), 1)
-	
-
-def Get_ShiftDesc(img_width, blks, desc, c_pixel):
-	
-	# width between images in descriptor
-	wsimg = blks*blks
-
-	(r, partial) = Get_ColRange(img_width, blks, c_pixel)
-	ndesc = []
-
-	for i in range(0,20,1):
-		for c in r:
-		
-			tmp = desc[(c*blks)+i*wsimg:((c+1)*blks)+i*wsimg]
-		
-			if c_pixel < (img_width/2):
-				if c == r[len(r)-1]:
-					tmp = partial*tmp
-			else:
-				if c == r[0]:
-					tmp = partial*tmp
-
-			ndesc.extend(tmp)
-		
-	return ndesc
-
 #######################################################################################
 class Gist_Processor(object):
-    	#if isinstance(blocks, numpy.ndarray):
-    	#	self.obj = libgist.GIST_PCA_new(im, blocks)
-    	#else:	
-        #	self.obj = libgist.GIST_basic_new(im, blocks)
+	def __init__(self):		
+		print "Tmp"
+		(self.IMAGE_WIDTH, self.IMAGE_HEIGHT) = libgist.GIST_Get_Info()
 
-    def Process(self, im):
-    	libgist.GIST_Process(im)
+	def Process(self, im):
+		libgist.GIST_Process(im)
 
-    def Get_Descriptor(self, blocks, x=0, y=0):
-    	return libgist.GIST_Get_Descriptor_Alloc(blocks, x, y)
+	def Get_Descriptor(self, blocks, x=0, y=0):
+		return libgist.GIST_Get_Descriptor_Alloc(blocks, x, y)
 
-    def Get_Descriptor_Reuse(self, desc, blocks, x=0, y=0):
-    	libgist.GIST_Get_Descriptor_Reuse(desc, blocks, x, y)
+	def Get_Descriptor_Rectangle(self, blocks, width, x=0, y=0):
+		return libgist.GIST_Get_Descriptor_Rectangle_Alloc(blocks, width, x, y)
 
-    def Get_Shifts(self, im, xshifts, blocks):
-    	(rows, cols, depth) = im.shape
-    	shftdesc = {}
+	def Get_Descriptor_Rectangle_Reuse(self, desc, blocks, width, x=0, y=0):
+		return libgist.GIST_Get_Descriptor_Rectangle_Reuse(desc, blocks, width, x, y)
 
-    	for x in xshifts:
-    		if x > 0:
-    			shiftim = delete(im, s_[0:x], axis=1)
-    		elif x == 0:
-    			shiftim = im
-    		else:
-    			shiftim = delete(im, s_[abs(x):cols], axis=1)
-    		
-    		print x, shiftim.shape
-    		cv2.imshow("test", shiftim)
-    		cv2.waitKey()
-    		self.Process(shiftim)
-    		shftdesc[x] = self.Get_Descriptor(blocks)
+	def Get_Descriptor_Reuse(self, desc, blocks, x=0, y=0):
+		libgist.GIST_Get_Descriptor_Reuse(desc, blocks, x, y)
 
-    	return shftdesc
+	def Get_Descriptor_Size(self, blocks):
+		return blocks*blocks*20
 
-    
     #def Get_Descriptor_Shift(self, desc=None):
 
     

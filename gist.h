@@ -11,7 +11,7 @@
 #include "/usr/local/include/opencv2/core/types_c.h"
 #include <Python.h>
 
-#define IMAGE_WIDTH  320
+#define IMAGE_WIDTH  640
 #define IMAGE_HEIGHT 240
 
 vector<cv::Mat *> *create_gabor(int nscales,  int *orientations, int width, int height);
@@ -41,6 +41,7 @@ class Gist_Processor
     void    prefilt_init(int width, int height);
     void    gfft_init(int width, int height);
     void    down_N(double *res, cv::Mat &src, int N, int cshift=0, int rshift=0);
+    void    down_N_rectangle(double *res, cv::Mat &src, int N, int width, int xshift=0, int xshift=0);
   	cv::Mat prefilt_process(cv::Mat &im, int fc);
     void    init(cv::Mat &baseim, int max_blocks);
 
@@ -53,6 +54,9 @@ class Gist_Processor
   	~Gist_Processor();
 
     int   Get_Descriptor(double **res, int block, int xshift=0, int yshift=0);
+    int   Get_Descriptor_Rectangle(double **res, int blocks, int width, int xshift=0, int yshift=0);
+    void  Get_Descriptor_Rectangle(double *res, int blocks, int width, int xshift=0, int yshift=0);
+
     void  Get_Descriptor(double *res, int blocks, int xshift=0, int yshift=0);
     void  Get_Descriptor_PCA(double *res, int blocks, int xshift=0, int yshift=0);
     int   Get_Descriptor_PCA(double **res, int blocks, int xshift, int yshift);

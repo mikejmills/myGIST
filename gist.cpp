@@ -245,82 +245,50 @@ void Gist_Processor::down_N(double *res, cv::Mat &src, int N, int cshift, int rs
 {
     int i, j, k, l;
     
-    /*
-    for(i = 0; i < N+1; i++)
-    {
-        nx[i] = i*src.cols/(N);
-        ny[i] = i*src.rows/(N);
-    }*/
+   
     
+
     
+    for(k = 0; k < N; k++) {           
     
-    int width = 0;
-    if (cshift < 0) {
+         for(l = 0; l < N; l++) { 
 
-        width = cshift - (src.cols/2);
-        nx[N] = (src.cols);
-        
-        width = width/N;
+           double mean = 0.0;
 
-        for(i = N-1; i > -1; i--)
-        {
-            nx[i] = nx[i+1] + width;
-            printf("- i %d  nx %d width %d\n", i, nx[i], width*N);
-            ny[i] = i*src.rows/(N);
-        }
-        printf("\n");
+            for(j = ny[l]; j < ny[l+1]; j++)
+            {
+                for(i = nx[k]; i < nx[k+1]; i++) {
+                    mean += ((double *)src.data)[j*src.cols+i];
+                }
+            }
+            
+            double denom = (double)(ny[l+1]-ny[l])*(nx[k+1]-nx[k]);
 
-    }
-
-    if (cshift > 0) {
-        width = cshift + (src.cols/2);
-        nx[0] = 0;
-        
-        
-        width = width/N;
-
-        for(i = 1; i < N+1; i++)
-        {
-            nx[i] = nx[i-1] + width;
-            printf("+ i %d  nx %d width %d\n", i, nx[i], width*N);
-            ny[i] = i*src.rows/(N);
-        }
-
-        printf("\n");
-        
-    }
-
-    if (cshift == 0) {
-        width = src.cols;
-        nx[0] = 0;
-        width = width/N;
-        for(i = 1; i < N+1; i++)
-        {
-            nx[i] = nx[i-1] + width;
-            ny[i] = i*src.rows/(N);
-
+            res[k*N+l] = mean / denom;
+            
         }
     }
+}
+
+void Gist_Processor::down_N_rectangle(double *res, cv::Mat &src, int N, int width, int xshift, int yshift)
+{
+    int i, j, k, l;
+    int himg = src.cols/2;
+    int hwidth = width/2;
     
-    //printf("%d %d\n", nx[0], nx[i-1]);  
-    //if (cshift >=  (src.cols/2)) cshift = (src.cols/2);
-    //if (cshift <  -(src.cols/2)) cshift = -src.cols/2;
-     
-    /*
-    for(i = 0; i < N+1; i++)
-    {
-        if (cshift > 0) {
-            nx[i] = i*((src.cols-cshift)/N) + cshift;
-            ny[i] = i*((src.rows-rshift)/N) + rshift;
-        } else {
-            nx[i] = i*((src.cols+cshift)/N);
-            ny[i] = i*((src.rows+rshift)/N);
-        }
+    if ((xshift + himg) < hwidth)              xshift = -(himg - width);
+    if ((xshift + himg) > (src.cols - hwidth)) xshift =  src.cols - (himg + hwidth);
 
-    }*/
-
+    nx[0] = (xshift + himg) - (width/2);
+    ny[0] = 0;
+    
+    width = width/N;
     
 
+    for( i=1; i < N+1; i++) {
+        nx[i] = nx[i-1] + width;
+        ny[i] = i*src.rows/N;
+    }
     
     for(k = 0; k < N; k++) {           
     
@@ -514,6 +482,47 @@ void Gist_Processor::Process(cv::Mat &im)
     
 }
 
+int Gist_Processor::Get_Descriptor_Rectangle(double **res, int blocks, int width, int xshift, int yshift)
+{
+    if (nblocks < blocks) {
+        
+        nblocks = blocks;
+        nx   =   (int *) realloc(nx,(blocks+1)*sizeof(int));
+        ny   =   (int *) realloc(ny,(blocks+1)*sizeof(int));
+        
+    }
+
+    
+    int size = blocks*blocks*gabors->size();
+
+    *res = (double *) malloc(size*sizeof(double));
+
+    
+    for (int k=0; k < gabors->size(); k++) {
+        down_N_rectangle((*res)+k*blocks*blocks, GaborResponses[k], blocks, width, xshift, yshift);
+    }
+
+    return size;
+   
+}
+
+void Gist_Processor::Get_Descriptor_Rectangle(double *res, int blocks, int width, int xshift, int yshift)
+{
+    if (nblocks < blocks) {
+        
+        nblocks = blocks;
+        nx   =   (int *) realloc(nx,(blocks+1)*sizeof(int));
+        ny   =   (int *) realloc(ny,(blocks+1)*sizeof(int));
+        
+    }
+    
+    for (int k=0; k < gabors->size(); k++) {
+        down_N_rectangle((res)+k*blocks*blocks, GaborResponses[k], blocks, width, xshift, yshift);
+    }
+
+    return;
+   
+}
 
 
 int Gist_Processor::Get_Descriptor(double **res, int blocks, int xshift, int yshift)

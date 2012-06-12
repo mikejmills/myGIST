@@ -1,12 +1,14 @@
 #include "gist.h"
 
+cv::Mat tmp_image(IMAGE_HEIGHT, IMAGE_WIDTH, CV_64FC1);
+
 void format_image(cv::Mat &input, cv::Mat &output)
 {
-    cv::Mat gray, tmp;
-
+ 
     cv::resize(input, output, cv::Size(IMAGE_WIDTH,IMAGE_HEIGHT));
     cv::cvtColor(output, input, CV_BGR2GRAY);
     input.convertTo(output, CV_64FC1, (double)1/255);
+
 }
 
 //
@@ -170,8 +172,10 @@ void Gist_Processor::init(cv::Mat &baseim, int max_blocks)
     ny   =   (int *) malloc((max_blocks+1)*sizeof(int));
 
     for(int i=0;i<nscales;i++) {
-        for (int j=0; j < orientations[i]; j++) 
+        for (int j=0; j < orientations[i]; j++) {
             GaborResponses.push_back(cv::Mat(baseim.rows, baseim.cols, CV_64FC1));
+            GaborResponsesInts.push_back(cv::Mat(baseim.rows+1, baseim.cols+1, CV_64F));
+        }
     }
 
     base_descsize = max_blocks*max_blocks*gabors->size();
@@ -197,9 +201,7 @@ Gist_Processor::Gist_Processor(cv::Mat &baseim, long int *blocks, int len)
         size = blocks[i]*blocks[i]*gabors->size();
         pca_map[blocks[i]] = make_pair(PCA_LoadData(blocks[i]), new cv::Mat(1, size, CV_64FC1));
     }
-    
-
-    
+    printf("PCA Enabled\n");
     PCA_ENABLED = true;
 }
 
@@ -243,12 +245,12 @@ Gist_Processor::~Gist_Processor()
 
 void Gist_Processor::down_N(double *res, cv::Mat &src, int N, int cshift, int rshift)
 {
-    int i, j, k, l;
+    //int i, j, k, l;
     
    
     
 
-    
+    /*
     for(k = 0; k < N; k++) {           
     
          for(l = 0; l < N; l++) { 
@@ -268,47 +270,50 @@ void Gist_Processor::down_N(double *res, cv::Mat &src, int N, int cshift, int rs
             
         }
     }
+    */
+
+
 }
 
 void Gist_Processor::down_N_rectangle(double *res, cv::Mat &src, int N, int width, int xshift, int yshift)
 {
-    int i, j, k, l;
-    int himg = src.cols/2;
-    int hwidth = width/2;
+    int i, x, y;
     
-    if ((xshift + himg) < hwidth)              xshift = -(himg - width);
-    if ((xshift + himg) > (src.cols - hwidth)) xshift =  src.cols - (himg + hwidth);
+    int cols = src.cols - 1, rows = src.rows - 1;
 
-    nx[0] = (xshift + himg) - (width/2);
-    ny[0] = 0;
+    int himg = cols/2;
+    int hwidth = width/2;
+
+    xshift = xshift + himg;
+    
+    if (xshift < 0)                  xshift = 0;
+    if (xshift > (src.cols - width)) xshift = src.cols - width;
+
+    nx[0] = xshift; //(xshift + himg) - (width/2) + 1;
+    ny[0] = 1;
     
     width = width/N;
+    //printf("%d ", nx[0]);
     
-
     for( i=1; i < N+1; i++) {
-        nx[i] = nx[i-1] + width;
-        ny[i] = i*src.rows/N;
+        nx[i] = (nx[i-1] + width);
+        //printf("%d ", nx[i]);
+        ny[i] = (i*rows/N);
+    }
+
+    //printf("\n");
+
+    double denom = (double)(ny[1]-ny[0])*(nx[1]-nx[0]);
+    
+    for(y = 0; y < N; y++) {
+        for(x = 0; x < N; x++) {  
+            res[x*N+y] =  (((double *)src.data)[ny[y+1]*src.cols + nx[x+1]] + 
+                           ((double *)src.data)[ny[y]*src.cols   + nx[x]]   -
+                           ((double *)src.data)[ny[y+1]*src.cols + nx[x]]   - 
+                           ((double *)src.data)[ny[y]*src.cols   + nx[x+1]]) / denom;
+         }
     }
     
-    for(k = 0; k < N; k++) {           
-    
-         for(l = 0; l < N; l++) { 
-
-           double mean = 0.0;
-
-            for(j = ny[l]; j < ny[l+1]; j++)
-            {
-                for(i = nx[k]; i < nx[k+1]; i++) {
-                    mean += ((double *)src.data)[j*src.cols+i];
-                }
-            }
-            
-            double denom = (double)(ny[l+1]-ny[l])*(nx[k+1]-nx[k]);
-
-            res[k*N+l] = mean / denom;
-            
-        }
-    }
 }
 
 
@@ -477,6 +482,7 @@ void Gist_Processor::Process(cv::Mat &im)
             }
         }
 
+        cv::integral(GaborResponses[k], GaborResponsesInts[k], CV_64F);
         
     }
     
@@ -492,15 +498,17 @@ int Gist_Processor::Get_Descriptor_Rectangle(double **res, int blocks, int width
         
     }
 
-    
     int size = blocks*blocks*gabors->size();
 
     *res = (double *) malloc(size*sizeof(double));
 
+
     
     for (int k=0; k < gabors->size(); k++) {
-        down_N_rectangle((*res)+k*blocks*blocks, GaborResponses[k], blocks, width, xshift, yshift);
+        down_N_rectangle((*res)+k*blocks*blocks, GaborResponsesInts[k], blocks, width, xshift, yshift);
     }
+
+
 
     return size;
    
@@ -517,13 +525,33 @@ void Gist_Processor::Get_Descriptor_Rectangle(double *res, int blocks, int width
     }
     
     for (int k=0; k < gabors->size(); k++) {
-        down_N_rectangle((res)+k*blocks*blocks, GaborResponses[k], blocks, width, xshift, yshift);
+        down_N_rectangle((res)+k*blocks*blocks, GaborResponsesInts[k], blocks, width, xshift, yshift);
     }
 
     return;
    
 }
 
+void Gist_Processor::Get_Descriptor_Rectangle_PCA(double *res, int blocks, int width, int xshift, int yshift)
+{
+    if (nblocks < blocks) {
+        
+        nblocks = blocks;
+        nx   =   (int *) realloc(nx,(blocks+1)*sizeof(int));
+        ny   =   (int *) realloc(ny,(blocks+1)*sizeof(int));
+        
+    }
+    
+    for (int k=0; k < gabors->size(); k++) {
+        down_N_rectangle((res)+k*blocks*blocks, GaborResponsesInts[k], blocks, width, xshift, yshift);
+    }
+
+    return;
+   
+}
+
+
+//============================================================================================================================
 
 int Gist_Processor::Get_Descriptor(double **res, int blocks, int xshift, int yshift)
 {
@@ -536,6 +564,7 @@ int Gist_Processor::Get_Descriptor(double **res, int blocks, int xshift, int ysh
     }
 
     if (PCA_ENABLED) {
+        printf("Using PCA\n");
         return Get_Descriptor_PCA(res, blocks, xshift, yshift);
 
     }
@@ -547,7 +576,7 @@ int Gist_Processor::Get_Descriptor(double **res, int blocks, int xshift, int ysh
 
     
     for (int k=0; k < gabors->size(); k++) {
-        down_N((*res)+k*blocks*blocks, GaborResponses[k], blocks, xshift, yshift);
+        down_N((*res)+k*blocks*blocks, GaborResponsesInts[k], blocks, xshift, yshift);
     }
 
     return size;
@@ -555,6 +584,8 @@ int Gist_Processor::Get_Descriptor(double **res, int blocks, int xshift, int ysh
 
 int Gist_Processor::Get_Size(int blocks)
 {
+    if (PCA_ENABLED) return PCA_DIM;
+
     return blocks*blocks*gabors->size();
 }
 
@@ -562,6 +593,7 @@ int Gist_Processor::Get_Size(int blocks)
 void Gist_Processor::Get_Descriptor(double *res, int blocks, int xshift, int yshift)
 {
     if (PCA_ENABLED) {
+        printf("Using PCA\n");
         Get_Descriptor_PCA(res, blocks, xshift, yshift);
         return;
     }
@@ -569,7 +601,7 @@ void Gist_Processor::Get_Descriptor(double *res, int blocks, int xshift, int ysh
     
 
     for (int k=0; k < gabors->size(); k++) {
-        down_N(res+k*blocks*blocks, GaborResponses[k], blocks, xshift, yshift);
+        down_N(res+k*blocks*blocks, GaborResponsesInts[k], blocks, xshift, yshift);
     }
 
 }

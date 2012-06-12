@@ -17,7 +17,7 @@ alglib::real_1d_array  coefficients;
 alglib::barycentricinterpolant p;
 alglib::polynomialfitreport    rep;
 
-
+/*
 void Get_Samples(Gist_Processor *proc, double *desc_goal, int range_width, int prev_min, int blocks)
 {
 
@@ -97,11 +97,11 @@ void Min_Similarity(Gist_Processor *proc, int cols, double **desc_goal, int *min
 
 		//printf("a %lf b %lf c %lf %lf %lf\n", a, b, c, min_sim, min);
 
-		/*
-		printf("shift %d\n", (int) min);
 		
-		printf("%d %lf %lf %lf %lf\n", (int) min, min, a, b, c);
-		*/
+		//printf("shift %d\n", (int) min);
+		
+		//printf("%d %lf %lf %lf %lf\n", (int) min, min, a, b, c);
+	
 
 		*min_shift = (int)min;
 		prev_min   = (int)min;
@@ -112,10 +112,30 @@ void Min_Similarity(Gist_Processor *proc, int cols, double **desc_goal, int *min
 
 	return;
 }
+*/
 
 int main() 
 {
-	sim_points.setlength(CURVE_SAMPLE_SIZE);
+	cv::Mat input;
+	cv::Mat output;
+	cv::namedWindow("view", 1);
+	cv::namedWindow("view2", 1);
+	cv::VideoCapture cap(0);
+	
+
+	while(1) {
+		cap >> input;
+		
+		cv::cvtColor(input, output, CV_BGR2GRAY);
+		cv::resize(output, input, cv::Size(IMAGE_WIDTH,IMAGE_HEIGHT));
+		input.convertTo(input, CV_64FC1, (double)1/255);
+		
+		cv::imshow("view", input);
+		cv::waitKey(1);
+	}
+
+
+	/*sim_points.setlength(CURVE_SAMPLE_SIZE);
 	shift_points.setlength(CURVE_SAMPLE_SIZE);
 
 	cv::Mat input, output;
@@ -134,7 +154,8 @@ int main()
 	//Get_Descriptor_PCA(float *res, int blocks, int xshift, int yshift)
 
 	proc.Process(output);
-	res_size = proc.Get_Descriptor(&res, 10*20,0,0);
+	res_size = proc.Get_Descriptor(&res, 4,0,0);
+	*/
 	/*//proc.Get_Descriptor_PCA(center, 4, 0, 0);
 	
 	res_size = proc.Get_Descriptor(&center[0], 4, 0);

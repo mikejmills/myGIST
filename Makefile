@@ -22,10 +22,15 @@ OBJECTS=$(SOURCES:.cpp=.o)
 EXECUTABLE=main
 
 all: $(MINILZO) $(SOURCES) $(EXECUTABLE)
-python: gist.o PCA.o gist_Python.cpp
-	@echo CC LINK libgist
-	@g++ $(CFLAGS) -fPIC gist_Python.cpp   -o libgist.o
-	@g++ $(LDFLAGS) -shared -Wl libgist.o gist.o PCA.o -o libgist.so 
+#python: gist.o PCA.o gist_Python.cpp
+#	@echo CC LINK libgist
+#	@g++ $(CFLAGS) -fPIC gist_Python.cpp   -o libgist.o
+#	@g++ $(LDFLAGS) -msse -msse2 -mfpmath=sse4 -shared -Wl libgist.o gist.o PCA.o -o libgist.so 
+
+python: python_gist.cpp python_gist.h
+	@echo CC python_gist.cpp
+	@g++ $(CFLAGS) -fPIC python_gist.cpp -o libgist.o
+	@g++ $(LDFLAGS) -msse -msse2 -mfpmath=sse4  -shared -Wl libgist.o -o libgist.so 	# -ffast-math
 
 $(EXECUTABLE): $(OBJECTS)
 	@echo LINKING $(EXECUTABLE)

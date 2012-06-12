@@ -17,14 +17,16 @@
         step[1] = (size_t) _strides[1];\
         cv::Mat tmp(2, size, 16, PyArray_DATA(matin), step);
 
-cv::Mat tmp(IMAGE_HEIGHT, IMAGE_WIDTH, CV_32FC1, NULL);
-//long int blocks[] = { 4, 8, 10};
-//Gist_Processor gp(tmp, blocks, 3);
-Gist_Processor gp(tmp, 4);
+cv::Mat tmp(IMAGE_HEIGHT, IMAGE_WIDTH, CV_64FC1, NULL);
+
+long int blocks[] = { 4, 8, 10};
+Gist_Processor gp(tmp, blocks, 3);
+
+//Gist_Processor gp(tmp, 4);
 
 PyObject* GIST_Get_Info(PyObject* obj, PyObject*args)
 {
-	return Py_BuildValue("(i,i)", IMAGE_WIDTH, IMAGE_HEIGHT);
+	return Py_BuildValue("(i,i,i)", IMAGE_WIDTH, IMAGE_HEIGHT, gp.Get_Gabors());
 }
 
 /*

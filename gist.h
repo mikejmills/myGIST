@@ -11,8 +11,8 @@
 #include "/usr/local/include/opencv2/core/types_c.h"
 #include <Python.h>
 
-#define IMAGE_WIDTH  640
-#define IMAGE_HEIGHT 240
+#define IMAGE_WIDTH  320
+#define IMAGE_HEIGHT 100
 
 vector<cv::Mat *> *create_gabor(int nscales,  int *orientations, int width, int height);
 double              gist_compare(double *d1, double *d2, int size);
@@ -30,8 +30,10 @@ class Gist_Processor
     int                nblocks;
     int                *nx, *ny;
     vector<cv::Mat>    GaborResponses;
+    vector<cv::Mat>    GaborResponsesInts;
     vector<cv::Mat *>  *gabors;
-  	map<int, pair<cv::PCA *, cv::Mat *> > pca_map;
+
+  	map<int, pair<cv::PCA *, cv::Mat *> >           pca_map;
     map<int, pair<cv::PCA *, cv::Mat *> >::iterator it;
 
   	double 		  	    *fx, *fy, *gfc;
@@ -61,6 +63,7 @@ class Gist_Processor
     void  Get_Descriptor_PCA(double *res, int blocks, int xshift=0, int yshift=0);
     int   Get_Descriptor_PCA(double **res, int blocks, int xshift, int yshift);
     int   Get_Size(int blocks);
+    int   Get_Gabors() { return gabors->size(); };
 
     void Process(cv::Mat &im);
     

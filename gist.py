@@ -9,7 +9,7 @@ from numpy import *
 class Gist_Processor(object):
 	def __init__(self):		
 		print "Tmp"
-		(self.IMAGE_WIDTH, self.IMAGE_HEIGHT) = libgist.GIST_Get_Info()
+		(self.IMAGE_WIDTH, self.IMAGE_HEIGHT, self.gabors) = libgist.GIST_Get_Info()
 
 	def Process(self, im):
 		libgist.GIST_Process(im)
@@ -27,7 +27,7 @@ class Gist_Processor(object):
 		libgist.GIST_Get_Descriptor_Reuse(desc, blocks, x, y)
 
 	def Get_Descriptor_Size(self, blocks):
-		return blocks*blocks*20
+		return blocks*blocks*self.gabors
 
     #def Get_Descriptor_Shift(self, desc=None):
 

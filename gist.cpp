@@ -245,12 +245,12 @@ Gist_Processor::~Gist_Processor()
 
 void Gist_Processor::down_N(double *res, cv::Mat &src, int N, int cshift, int rshift)
 {
-    //int i, j, k, l;
+    int i, j, k, l;
     
    
     
 
-    /*
+    
     for(k = 0; k < N; k++) {           
     
          for(l = 0; l < N; l++) { 
@@ -270,7 +270,7 @@ void Gist_Processor::down_N(double *res, cv::Mat &src, int N, int cshift, int rs
             
         }
     }
-    */
+    
 
 
 }

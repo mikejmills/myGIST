@@ -2,9 +2,11 @@
 #include "python_gist.h"
 #include <vector.h>
 #include <cv.h>
+#include <opencv2/highgui/highgui.hpp>
 #include <fftw3.h>
 #include <Python.h>
 #include <numpy/arrayobject.h>
+
 #include <numpy/ndarrayobject.h>
 
 
@@ -12,17 +14,35 @@ int IMAGE_HEIGHT = 240, IMAGE_WIDTH = 320;
 vector<cv::Mat *> *Gabor_filters;
 vector<cv::Mat>   *Response_Image;
 
-#define Get_cvMat_From_Numpy_Mat(matin) \
-		const npy_intp* _strides = PyArray_STRIDES(matin);\
-        const npy_intp* _sizes = PyArray_DIMS(matin);\
-        int    size[CV_MAX_DIM+1];\
-        size_t step[CV_MAX_DIM+1];\
-        size[0] = (int)_sizes[0];\
-        size[1] = (int)_sizes[1];\
-		step[0] = (size_t) _strides[0];\
-        step[1] = (size_t) _strides[1];\
+/*
+inline cv::Mat Get_cvMat_From_Numpy_Mat(cv::Mat matin) 
+		const npy_intp* _strides = PyArray_STRIDES(matin);
+        const npy_intp* _sizes = PyArray_DIMS(matin);
+        int    size[CV_MAX_DIM+1];
+        size_t step[CV_MAX_DIM+1];
+        size[0] = (int)_sizes[0];
+        size[1] = (int)_sizes[1];
+		step[0] = (size_t) _strides[0];
+        step[1] = (size_t) _strides[1];
         cv::Mat tmp(2, size, 16, PyArray_DATA(matin), step); // 16 is the image type using builting functions returns wrong type
+        return tmp;
+}*/
 
+inline void Get_cvMat_From_Numpy_Mat(PyArrayObject *matin, cv::Mat &output)
+{
+    const npy_intp* _strides = PyArray_STRIDES(matin);
+    const npy_intp* _sizes   = PyArray_DIMS(matin);
+    int    size[CV_MAX_DIM+1];
+    size_t step[CV_MAX_DIM+1];
+    
+    size[0] = (int)_sizes[0];
+    size[1] = (int)_sizes[1];
+    step[0] = (size_t) _strides[0];
+    step[1] = (size_t) _strides[1];
+    printf("%d %d\n", PyArray_TYPE(matin), NPY_UINT8);
+   // exit(1);
+    output = cv::Mat(2, size, 16, PyArray_DATA(matin), step); // 16 is the image type using builting functions returns wrong type
+}
 //=============================================================================================================================
 
 //
@@ -144,6 +164,8 @@ vector<cv::Mat *> *create_gabor(int nscales,  int *orientations, int width, int 
                 
                 data[j*cols+i] = expf(-10.0f*param[fn][0]*(*fr_ptr/height/param[fn][1]-1)*
                                     (*fr_ptr/width/param[fn][1]-1)-2.0f*param[fn][2]*M_PI*tmp*tmp);
+
+               
                 fr_ptr++;
                 
             }
@@ -163,7 +185,7 @@ vector<cv::Mat *> *create_gabor(int nscales,  int *orientations, int width, int 
     free(fy);
     free(fr);
     free(f);
-
+    
     return Gfs;
 }
 
@@ -231,42 +253,55 @@ cv::Mat tmp_image(IMAGE_HEIGHT, IMAGE_WIDTH, CV_64FC1);
 
 void format_image(cv::Mat &input, cv::Mat &output)
 {
- 
+    
     cv::resize(input, output, cv::Size(IMAGE_WIDTH,IMAGE_HEIGHT));
-    cv::cvtColor(output, input, CV_BGR2GRAY);
-    input.convertTo(output, CV_64FC1, (double)1/255);
+    cv::cvtColor(output, tmp_image, CV_BGR2GRAY);
+    tmp_image.convertTo(output, CV_64FC1, 1);
 
 }
 //=============================================================================================================================
 cv::Mat prefilt_process(cv::Mat &im, int fc)
 {
     cv::Mat pim;
-
+    int i,j;
+    int width  = im.cols;
+    int height = im.rows;
+    //
+    // Log
+    for(j = 0; j < height; j++)
+    {
+        for(i = 0; i < width; i++) {
+            //((double*)im.data)[j*im.cols+i] = (double)log( ((double*)im.data)[j*im.cols+i]+1.0f );
+            im.at<double>(j,i) = log(im.at<double>(j,i)+1.0);
+        }
+    }
+    
     //
     // Add padding
-    copyMakeBorder(im, pim, 5, 5, 5, 5, IPL_BORDER_CONSTANT, cv::Scalar(0,0,0));
+    copyMakeBorder(im, pim, 5, 5, 5, 5, IPL_BORDER_REPLICATE);
     
-    int i,j;
-    int width  = pim.cols;
-    int height = pim.rows;
+    width  = pim.cols;
+    height = pim.rows;
 
     //
     // Build whitening filter and apply whitening filter
-    double s1 = fc/sqrt(log(2));
+    double s1 = fc/sqrt(log(2.0));
     for(j = 0; j < height; j++)
     {
         for(i = 0; i < width; i++)
         {
-            in1[j*width + i][0] = ((double *)pim.data)[j*width+i];
+            in1[j*width + i][0] = pim.at<double>(j,i);
             in1[j*width + i][1] = 0.0f;
+            
 
-            fx[j*width + i] = (double) i - width/2.0f;
-            fy[j*width + i] = (double) j - height/2.0f;
+            fx[j*width + i] = (double) i - width/2.0;
+            fy[j*width + i] = (double) j - height/2.0;
 
             gfc[j*width + i] = exp(-(fx[j*width + i]*fx[j*width + i] + fy[j*width + i]*fy[j*width + i]) / (s1*s1));
+            
         }
     }
-
+    
     fftshift(gfc, width, height);
 
     fftwf_execute(fft1);
@@ -275,11 +310,13 @@ cv::Mat prefilt_process(cv::Mat &im, int fc)
     {
         for(i = 0; i < width; i++)
         {
+            
             out[j*width+i][0] *= gfc[j*width + i];
             out[j*width+i][1] *= gfc[j*width + i];
+            
         }
     }
-
+   
     fftwf_execute(ifft1);
 
 
@@ -289,12 +326,16 @@ cv::Mat prefilt_process(cv::Mat &im, int fc)
     {
         for(i = 0; i < width; i++)
         {
-            ((double *)pim.data)[j*pim.cols+i] -= in2[j*width+i][0] / (width*height);
+            //((double *)pim.data)[j*pim.cols+i] -= in2[j*width+i][0] / (width*height);
+            pim.at<double>(j,i) -= in2[j*width+i][0] / (width*height);
 
-            in1[j*width + i][0] = ((double *)pim.data)[j*pim.cols+i] * ((double *)pim.data)[j*pim.cols+i];
-            in1[j*width + i][1] = 0.0f;
+            in1[j*width + i][0] = pim.at<double>(j,i) * pim.at<double>(j,i);
+            in1[j*width + i][1] = 0.0;
+
+            //printf("local %f\n", in1[j*width + i][0]);
         }
     }
+    //exit(1);
 
     fftwf_execute(fft2);
 
@@ -315,9 +356,10 @@ cv::Mat prefilt_process(cv::Mat &im, int fc)
     for(j = 0; j < height; j++)
     {
         for(i = 0; i < width; i++) {
-            ((double *)pim.data)[j*pim.cols+i] = ((double *)pim.data)[j*pim.cols+i] / (0.2f+sqrt(sqrt(in2[j*width+i][0]*in2[j*width+i][0]+in2[j*width+i][1]*in2[j*width+i][1]) / (width*height)));
+            pim.at<double>(j,i) = pim.at<double>(j,i) / (0.2+sqrt(sqrt(in2[j*width+i][0]*in2[j*width+i][0]+in2[j*width+i][1]*in2[j*width+i][1]) / (width*height)));
         }
     }
+    
     
     //
     // Remove borders
@@ -330,17 +372,21 @@ void Process(cv::Mat &im)
 {
     int height = im.rows;
     int width  = im.cols;
-  
-    prefilt_process(im, 5);
+    
+    im = prefilt_process(im, 4);
+    
+    
     
     for(int j = 0; j < height; j++)
     {
         for(int i = 0; i < width; i++)
         {
-            gin1[j*width + i][0] = ((double*)im.data)[j*im.cols+i];
+            gin1[j*width + i][0] = im.at<double>(j,i);
+    
             gin1[j*width + i][1] = 0.0f;
         }
     }
+    
 
     fftwf_execute(gfft);
 
@@ -351,10 +397,9 @@ void Process(cv::Mat &im)
         {
             for(int i = 0; i < width; i++)
             {
-                double *data = (double *)((*Gabor_filters)[k]->data);
-
-                gout2[j*width+i][0] = gout1[j*width+i][0] * data[j*(*Gabor_filters)[k]->cols+i];
-                gout2[j*width+i][1] = gout1[j*width+i][1] * data[j*(*Gabor_filters)[k]->cols+i];
+                //double *data = (double *)((*Gabor_filters)[k]->data);
+                gout2[j*width+i][0] = gout1[j*width+i][0] * (*Gabor_filters)[k]->at<double>(j,i); //data[j*(*Gabor_filters)[k]->cols+i];
+                gout2[j*width+i][1] = gout1[j*width+i][1] * (*Gabor_filters)[k]->at<double>(j,i); //data[j*(*Gabor_filters)[k]->cols+i];
             }
         }
 
@@ -367,20 +412,28 @@ void Process(cv::Mat &im)
         for(int j = 0; j < h; j++)
         {
             for(int i = 0; i < w; i++) {
-            	//printf("%d %d\n", i, j);
-                //((double*)im.data)[j*im.cols+i] 
-                ((double*)(*Response_Image)[k].data)[(j+1)*(*Response_Image)[k].cols+(i+1)] = sqrt(gin2[j*width+i][0]*gin2[j*width+i][0]+gin2[j*width+i][1]*gin2[j*width+i][1])/(width*height) +
-                																		      ((double*)(*Response_Image)[k].data)[(j+1)*(*Response_Image)[k].cols+(i)] +
-                																		      ((double*)(*Response_Image)[k].data)[(j)*(*Response_Image)[k].cols+(i+1)] - 
-                                                                                              ((double*)(*Response_Image)[k].data)[(j)*(*Response_Image)[k].cols+(i)];
+            	
+                //((double*)im.data)[j*im.cols+i] (double)sqrt(gin2[j*width+i][0]*gin2[j*width+i][0]+gin2[j*width+i][1]*gin2[j*width+i][1])/(width*height)
+                //((double*)(*Response_Image)[k].data)[(j+1)*(*Response_Image)[k].cols+(i+1)] 
+                (*Response_Image)[k].at<double>(j+1, i+1) =   (double)sqrt(gin2[j*width+i][0]*gin2[j*width+i][0]+gin2[j*width+i][1]*gin2[j*width+i][1])/(width*height)
+                                                                                                + (*Response_Image)[k].at<double>(j+1,i)
+                                                                                                + (*Response_Image)[k].at<double>(j,i+1)
+                                                                                                - (*Response_Image)[k].at<double>(j,i);
+                                                                                                //+ ((double*)(*Response_Image)[k].data)[(j+1)*(*Response_Image)[k].cols+(i)]
+                                                                                                //+ ((double*)(*Response_Image)[k].data)[(j)*(*Response_Image)[k].cols+(i+1)]
+                                                                                                //- ((double*)(*Response_Image)[k].data)[(j)*(*Response_Image)[k].cols+(i)]; 
+                																		      
+
+                printf("response j %d i %d value %f\n", j+1, i+1, (double)sqrt(gin2[j*width+i][0]*gin2[j*width+i][0]+gin2[j*width+i][1]*gin2[j*width+i][1])/(width*height));
             }
         }
-
+        //cv::imshow("Video", (*Response_Image)[1]);
         //cv::Mat tmp((*Response_Image)[k].rows-1, (*Response_Image)[k].cols-1, CV_64F, (*Response_Image)[k].data);
         //cv::integral(tmp, (*Response_Image)[k], CV_64F);
         
         
     }
+    exit(1);
     
 }
 //=============================================================================================================================
@@ -395,23 +448,24 @@ void Fill_Descriptor(double *desc, int xoffset, int win_width, int xblks, int yb
 
     int i, x, y;
     
-    int cols = IMAGE_WIDTH - 1, rows = IMAGE_HEIGHT - 1;
+    int cols = IMAGE_WIDTH, rows = IMAGE_HEIGHT;
 
     int himg   = cols/2;
-    //int hwidth = win_width/2;
 
-    int width  = win_width/xblks;
-    int height = rows/yblks;
+    int hwin = win_width/2;
 
-    xoffset = xoffset + himg;
-    
+    int width  = (win_width/xblks)-1;
+    int height = (rows/yblks)-1;
+
+    xoffset = xoffset + himg - hwin;
+   
     if (xoffset < 0)                         xoffset = 0;
     if (xoffset > (IMAGE_WIDTH - win_width)) xoffset = IMAGE_WIDTH - win_width;
 
-    nx[0] = xoffset;
-    ny[0] = 0;
+    nx[0] = xoffset+1;
+    ny[0] = 1;
     
-    
+    printf("xoffset %d\n", xoffset);
 
     for( i=1; i < xblks+1; i++) {
         nx[i] = (nx[i-1] + width);
@@ -420,9 +474,10 @@ void Fill_Descriptor(double *desc, int xoffset, int win_width, int xblks, int yb
     for( i=1; i < yblks+1; i++) {
         ny[i] = (ny[i-1] + height);
     }
+    
 
     double denom = (double)(ny[1]-ny[0])*(nx[1]-nx[0]);
-    printf("denom %f\n", denom);    
+        
 
     for (int gbr = 0; gbr < Response_Image->size(); gbr++) {
 
@@ -433,9 +488,9 @@ void Fill_Descriptor(double *desc, int xoffset, int win_width, int xblks, int yb
             for(x = 0; x < xblks; x++) {  
                 
                 res[y*xblks+x] = (((double *)src.data)[ny[y+1]*src.cols + nx[x+1]] + 
-                                 ((double *)src.data)[ny[y]*src.cols    + nx[x]]   -
-                                 ((double *)src.data)[ny[y+1]*src.cols  + nx[x]]   - 
-                                 ((double *)src.data)[ny[y]*src.cols    + nx[x+1]]) / denom;
+                                  ((double *)src.data)[ny[y]*src.cols    + nx[x]]   -
+                                  ((double *)src.data)[ny[y+1]*src.cols  + nx[x]]   - 
+                                  ((double *)src.data)[ny[y]*src.cols    + nx[x+1]]) / denom;
 
              }
         }
@@ -444,6 +499,11 @@ void Fill_Descriptor(double *desc, int xoffset, int win_width, int xblks, int yb
 
 
 }
+
+//=============================================================================================================================
+cv::PCA pca_object;
+int PCcount = 0;
+
 
 //=============================================================================================================================
 PyObject *Init_GIST(PyObject* obj, PyObject *args)
@@ -468,9 +528,30 @@ PyObject *Init_GIST(PyObject* obj, PyObject *args)
 	return Py_None;
 }
 
+PyObject *Init_PCA(PyObject* obj, PyObject *args)
+{
+    PyArrayObject *mean, *eigenvectors;
+    
+
+    if (!PyArg_ParseTuple(args, "O!O!", &PyArray_Type, &mean, &PyArray_Type, &eigenvectors))  {
+        printf("FAILED PROCESSING Parsing\n");
+        return NULL;
+    }
+    
+    Get_cvMat_From_Numpy_Mat(mean, pca_object.mean);
+    Get_cvMat_From_Numpy_Mat(eigenvectors, pca_object.eigenvectors);
+    
+    PCcount = pca_object.eigenvectors.rows;
+
+    Py_INCREF(Py_None);
+    return Py_None;
+
+}
+
+
 PyObject *Process_Image(PyObject *obj, PyObject *args)
 {
-	cv::Mat        output;
+	cv::Mat        output, tmp;
 	PyArrayObject  *imarray;
 
 	if (!PyArg_ParseTuple(args, "O!",  &PyArray_Type,  &imarray))  {
@@ -480,8 +561,14 @@ PyObject *Process_Image(PyObject *obj, PyObject *args)
 
 	Py_INCREF(imarray);
 
-	Get_cvMat_From_Numpy_Mat(imarray);
+	Get_cvMat_From_Numpy_Mat(imarray, tmp);
 	format_image(tmp, output);
+    /*
+    for (int y=0; y < output.rows; y++) 
+        for(int x=0; x < output.cols; x++)
+            printf("%f\n", ((double*)output.data)[y*output.cols + x]);
+    */
+    
 	Process(output);
 	
 	Py_DECREF(imarray);
@@ -548,6 +635,8 @@ extern "C" {
 		{"process", Process_Image, METH_VARARGS},
         {"alloc", Descriptor_Allocate, METH_VARARGS},
         {"get", Get_Descriptor, METH_VARARGS},
+        {"init_pca", Init_PCA, METH_VARARGS},
+
 		/*{"GIST_ProcessT_Get_Info",  GIST_Get_Info, METH_VARARGS},
 		{"GIST_PCA_new",    GIST_PCA_new, METH_VARARGS},
 		{"GIST_Process",    GIST_Process, METH_VARARGS},

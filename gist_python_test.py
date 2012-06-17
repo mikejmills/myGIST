@@ -6,8 +6,6 @@ import numpy as np
 
 im = cv2.imread("../lear_gist-1.2/image136.jpeg")
 
-
-
 print im.shape
 gist.init(im.shape[1],im.shape[0])
 

@@ -413,27 +413,18 @@ void Process(cv::Mat &im)
         {
             for(int i = 0; i < w; i++) {
             	
-                //((double*)im.data)[j*im.cols+i] (double)sqrt(gin2[j*width+i][0]*gin2[j*width+i][0]+gin2[j*width+i][1]*gin2[j*width+i][1])/(width*height)
-                //((double*)(*Response_Image)[k].data)[(j+1)*(*Response_Image)[k].cols+(i+1)] 
-                (*Response_Image)[k].at<double>(j+1, i+1) =   (double)sqrt(gin2[j*width+i][0]*gin2[j*width+i][0]+gin2[j*width+i][1]*gin2[j*width+i][1])/(width*height)
-                                                                                                + (*Response_Image)[k].at<double>(j+1,i)
-                                                                                                + (*Response_Image)[k].at<double>(j,i+1)
-                                                                                                - (*Response_Image)[k].at<double>(j,i);
-                                                                                                //+ ((double*)(*Response_Image)[k].data)[(j+1)*(*Response_Image)[k].cols+(i)]
-                                                                                                //+ ((double*)(*Response_Image)[k].data)[(j)*(*Response_Image)[k].cols+(i+1)]
-                                                                                                //- ((double*)(*Response_Image)[k].data)[(j)*(*Response_Image)[k].cols+(i)]; 
-                																		      
+                (*Response_Image)[k].at<double>(j+1, i+1) = (double)sqrt(gin2[j*width+i][0]*gin2[j*width+i][0]+gin2[j*width+i][1]*gin2[j*width+i][1])/(width*height)
+                                                            + (*Response_Image)[k].at<double>(j+1,i)
+                                                            + (*Response_Image)[k].at<double>(j,i+1)
+                                                            - (*Response_Image)[k].at<double>(j,i);
 
-                printf("response j %d i %d value %f\n", j+1, i+1, (double)sqrt(gin2[j*width+i][0]*gin2[j*width+i][0]+gin2[j*width+i][1]*gin2[j*width+i][1])/(width*height));
+                printf("response %d %d %f\n", i,j,(double)sqrt(gin2[j*width+i][0]*gin2[j*width+i][0]+gin2[j*width+i][1]*gin2[j*width+i][1])/(width*height));
             }
         }
-        //cv::imshow("Video", (*Response_Image)[1]);
-        //cv::Mat tmp((*Response_Image)[k].rows-1, (*Response_Image)[k].cols-1, CV_64F, (*Response_Image)[k].data);
-        //cv::integral(tmp, (*Response_Image)[k], CV_64F);
         
         
     }
-    exit(1);
+   
     
 }
 //=============================================================================================================================
@@ -462,10 +453,10 @@ void Fill_Descriptor(double *desc, int xoffset, int win_width, int xblks, int yb
     if (xoffset < 0)                         xoffset = 0;
     if (xoffset > (IMAGE_WIDTH - win_width)) xoffset = IMAGE_WIDTH - win_width;
 
-    nx[0] = xoffset+1;
-    ny[0] = 1;
+    nx[0] = xoffset;
+    ny[0] = 0;
     
-    printf("xoffset %d\n", xoffset);
+    //printf("xoffset %d\n", xoffset);
 
     for( i=1; i < xblks+1; i++) {
         nx[i] = (nx[i-1] + width);
@@ -477,7 +468,7 @@ void Fill_Descriptor(double *desc, int xoffset, int win_width, int xblks, int yb
     
 
     double denom = (double)(ny[1]-ny[0])*(nx[1]-nx[0]);
-        
+    printf("delta %d %d\n", ny[1]-ny[0], (nx[1]-nx[0]));
 
     for (int gbr = 0; gbr < Response_Image->size(); gbr++) {
 
@@ -486,12 +477,14 @@ void Fill_Descriptor(double *desc, int xoffset, int win_width, int xblks, int yb
 
         for(y = 0; y < yblks; y++) {
             for(x = 0; x < xblks; x++) {  
+                double mean   = (  src.at<double>(ny[y+1], nx[x+1]) 
+                                 + src.at<double>(ny[y], nx[x]) 
+                                 - src.at<double>(ny[y+1], nx[x])
+                                 - src.at<double>(ny[y], nx[x+1]) );
                 
-                res[y*xblks+x] = (((double *)src.data)[ny[y+1]*src.cols + nx[x+1]] + 
-                                  ((double *)src.data)[ny[y]*src.cols    + nx[x]]   -
-                                  ((double *)src.data)[ny[y+1]*src.cols  + nx[x]]   - 
-                                  ((double *)src.data)[ny[y]*src.cols    + nx[x+1]]) / denom;
+                printf("mean %f denom %f\n", mean, denom);
 
+                res[y*xblks+x]=  mean / denom;
              }
         }
     

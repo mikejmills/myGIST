@@ -609,8 +609,8 @@ PyObject *Descriptor_Allocate(PyObject *obj, PyObject *args)
     }
 
     
-    dims[0] = DESCRIPTOR_SIZE(xblks, yblks);
-    dims[1] = 1;
+    dims[0] = 1;
+    dims[1] = DESCRIPTOR_SIZE(xblks, yblks);
 
     if ( !(desc = (PyArrayObject*)PyArray_FromDims(2, dims, NPY_DOUBLE)) ) {
         printf("Error allocating Array\n");

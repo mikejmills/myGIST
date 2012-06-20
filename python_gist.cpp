@@ -28,7 +28,7 @@ inline cv::Mat Get_cvMat_From_Numpy_Mat(cv::Mat matin)
         return tmp;
 }*/
 
-inline void Get_cvMat_From_Numpy_Mat(PyArrayObject *matin, cv::Mat &output)
+inline void Get_cvMat_From_Numpy_Mat(PyArrayObject *matin, cv::Mat &output, int type)
 {
     const npy_intp* _strides = PyArray_STRIDES(matin);
     const npy_intp* _sizes   = PyArray_DIMS(matin);
@@ -39,9 +39,9 @@ inline void Get_cvMat_From_Numpy_Mat(PyArrayObject *matin, cv::Mat &output)
     size[1] = (int)_sizes[1];
     step[0] = (size_t) _strides[0];
     step[1] = (size_t) _strides[1];
-    printf("%d %d\n", PyArray_TYPE(matin), NPY_UINT8);
+    //printf("%d %d\n", PyArray_TYPE(matin), NPY_UINT8);
    // exit(1);
-    output = cv::Mat(2, size, 16, PyArray_DATA(matin), step); // 16 is the image type using builting functions returns wrong type
+    output = cv::Mat(2, size, type, PyArray_DATA(matin), step); // 16 is the image type using builting functions returns wrong type
 }
 //=============================================================================================================================
 
@@ -417,8 +417,6 @@ void Process(cv::Mat &im)
                                                             + (*Response_Image)[k].at<double>(j+1,i)
                                                             + (*Response_Image)[k].at<double>(j,i+1)
                                                             - (*Response_Image)[k].at<double>(j,i);
-
-                printf("response %d %d %f\n", i,j,(double)sqrt(gin2[j*width+i][0]*gin2[j*width+i][0]+gin2[j*width+i][1]*gin2[j*width+i][1])/(width*height));
             }
         }
         
@@ -468,7 +466,7 @@ void Fill_Descriptor(double *desc, int xoffset, int win_width, int xblks, int yb
     
 
     double denom = (double)(ny[1]-ny[0])*(nx[1]-nx[0]);
-    printf("delta %d %d\n", ny[1]-ny[0], (nx[1]-nx[0]));
+   
 
     for (int gbr = 0; gbr < Response_Image->size(); gbr++) {
 
@@ -482,7 +480,6 @@ void Fill_Descriptor(double *desc, int xoffset, int win_width, int xblks, int yb
                                  - src.at<double>(ny[y+1], nx[x])
                                  - src.at<double>(ny[y], nx[x+1]) );
                 
-                printf("mean %f denom %f\n", mean, denom);
 
                 res[y*xblks+x]=  mean / denom;
              }
@@ -497,6 +494,31 @@ void Fill_Descriptor(double *desc, int xoffset, int win_width, int xblks, int yb
 cv::PCA pca_object;
 int PCcount = 0;
 
+PyObject *PCA_project(PyObject *obj, PyObject *args)
+{
+    PyArrayObject  *desc, *pca_desc;
+    cv::Mat        cvdesc, cvpca_desc;
+
+    if (!PyArg_ParseTuple(args, "O!O!",  &PyArray_Type, &desc, &PyArray_Type, &pca_desc))  {
+        printf("FAILED PROCESSING Parsing\n");
+        return NULL;
+    }
+
+    Get_cvMat_From_Numpy_Mat(desc, cvdesc, CV_64FC1);
+    Get_cvMat_From_Numpy_Mat(pca_desc, cvpca_desc, CV_64FC1);
+
+    /*printf("%d %d : %d %d data %d %d : %d %d\n", cvdesc.cols, cvdesc.rows, cvpca_desc.cols, cvpca_desc.rows,   
+                                                 pca_object.mean.cols, pca_object.mean.rows, pca_object.eigenvectors.cols, pca_object.eigenvectors.rows);
+    */
+    
+    pca_object.project(cvdesc, cvpca_desc);
+
+
+
+    Py_INCREF(Py_None);
+    return Py_None;    
+
+}
 
 //=============================================================================================================================
 PyObject *Init_GIST(PyObject* obj, PyObject *args)
@@ -521,6 +543,7 @@ PyObject *Init_GIST(PyObject* obj, PyObject *args)
 	return Py_None;
 }
 
+
 PyObject *Init_PCA(PyObject* obj, PyObject *args)
 {
     PyArrayObject *mean, *eigenvectors;
@@ -531,13 +554,13 @@ PyObject *Init_PCA(PyObject* obj, PyObject *args)
         return NULL;
     }
     
-    Get_cvMat_From_Numpy_Mat(mean, pca_object.mean);
-    Get_cvMat_From_Numpy_Mat(eigenvectors, pca_object.eigenvectors);
+    Get_cvMat_From_Numpy_Mat(mean, pca_object.mean, CV_64FC1);
+    Get_cvMat_From_Numpy_Mat(eigenvectors, pca_object.eigenvectors, CV_64FC1);
     
     PCcount = pca_object.eigenvectors.rows;
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    
+    return Py_BuildValue("(ii)", PCcount, pca_object.mean.cols);
 
 }
 
@@ -554,13 +577,9 @@ PyObject *Process_Image(PyObject *obj, PyObject *args)
 
 	Py_INCREF(imarray);
 
-	Get_cvMat_From_Numpy_Mat(imarray, tmp);
+	Get_cvMat_From_Numpy_Mat(imarray, tmp, 16);
 	format_image(tmp, output);
-    /*
-    for (int y=0; y < output.rows; y++) 
-        for(int x=0; x < output.cols; x++)
-            printf("%f\n", ((double*)output.data)[y*output.cols + x]);
-    */
+   
     
 	Process(output);
 	
@@ -593,7 +612,7 @@ PyObject *Descriptor_Allocate(PyObject *obj, PyObject *args)
     dims[0] = DESCRIPTOR_SIZE(xblks, yblks);
     dims[1] = 1;
 
-    if ( !(desc = (PyArrayObject*)PyArray_FromDims(1, dims, NPY_DOUBLE)) ) {
+    if ( !(desc = (PyArrayObject*)PyArray_FromDims(2, dims, NPY_DOUBLE)) ) {
         printf("Error allocating Array\n");
         Py_INCREF(Py_None);
         return Py_None;
@@ -629,6 +648,7 @@ extern "C" {
         {"alloc", Descriptor_Allocate, METH_VARARGS},
         {"get", Get_Descriptor, METH_VARARGS},
         {"init_pca", Init_PCA, METH_VARARGS},
+        {"pca_project", PCA_project, METH_VARARGS},
 
 		/*{"GIST_ProcessT_Get_Info",  GIST_Get_Info, METH_VARARGS},
 		{"GIST_PCA_new",    GIST_PCA_new, METH_VARARGS},

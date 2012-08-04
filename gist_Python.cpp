@@ -22,36 +22,12 @@ cv::Mat tmp(IMAGE_HEIGHT, IMAGE_WIDTH, CV_64FC1, NULL);
 long int blocks[] = { 4, 8, 10};
 Gist_Processor gp(tmp, blocks, 3);
 
-//Gist_Processor gp(tmp, 4);
+
 
 PyObject* GIST_Get_Info(PyObject* obj, PyObject*args)
 {
 	return Py_BuildValue("(i,i,i)", IMAGE_WIDTH, IMAGE_HEIGHT, gp.Get_Gabors());
 }
-
-/*
-PyObject* GIST_PCA_new(PyObject* obj, PyObject*args)
-{
-	
-	PyArrayObject *baseim, *blocks;
-	
-	cv::Mat output;
-
-	if (!PyArg_ParseTuple(args, "O!O!",  &PyArray_Type,  &baseim, &PyArray_Type,  &blocks))  return NULL;
-	Py_INCREF(baseim);
-	Py_INCREF(blocks);
-	
-	Get_Mat(baseim);
-	format_image(tmp, output);
-
-    //Gist_Processor *gp = new Gist_Processor(output, (long int *)(blocks->data), (int)blocks->dimensions[1]);
-	
-	Py_DECREF(blocks);
-    Py_DECREF(baseim);
-	    
-    return Py_BuildValue("k", (unsigned long int)100);
-}
-*/
 
 PyObject* GIST_Process(PyObject* obj, PyObject*args)
 {
@@ -71,7 +47,6 @@ PyObject* GIST_Process(PyObject* obj, PyObject*args)
 	
 	Py_DECREF(imarray);
 	
-
 	Py_INCREF(Py_None);
 	return Py_None;
 }
@@ -190,8 +165,6 @@ extern "C" {
 		{"GIST_Get_Descriptor_Reuse", GIST_Get_Descriptor_Reuse, METH_VARARGS},
 		{"GIST_Get_Descriptor_Rectangle_Alloc", GIST_Get_Descriptor_Rectangle_Alloc, METH_VARARGS},
 		{"GIST_Get_Descriptor_Rectangle_Reuse", GIST_Get_Descriptor_Rectangle_Reuse, METH_VARARGS},
-		/*{"GIST_Get_Descriptor_PCA_Reuse", GIST_Get_Descriptor_PCA_Reuse, METH_VARARGS},
-		{"GIST_Get_Descriptor_PCA_Alloc", GIST_Get_Descriptor_PCA_Alloc, METH_VARARGS},*/
 		{NULL, NULL}
 	};
 

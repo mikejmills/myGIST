@@ -1,7 +1,7 @@
 
 #include "python_gist.h"
-#include <vector.h>
-#include <cv.h>
+#include <vector>
+#include <opencv/cv.h>
 #include <opencv2/highgui/highgui.hpp>
 #include <fftw3.h>
 #include <Python.h>
@@ -11,8 +11,8 @@
 
 
 int IMAGE_HEIGHT = 240, IMAGE_WIDTH = 320;
-vector<cv::Mat *> *Gabor_filters;
-vector<cv::Mat>   *Response_Image;
+std::vector<cv::Mat *> *Gabor_filters;
+std::vector<cv::Mat>   *Response_Image;
 
 /*
 inline cv::Mat Get_cvMat_From_Numpy_Mat(cv::Mat matin) 
@@ -81,7 +81,7 @@ static void fftshift(double *data, int w, int h)
 
 
 
-vector<cv::Mat *> *create_gabor(int nscales,  int *orientations, int width, int height)
+std::vector<cv::Mat *> *create_gabor(int nscales,  int *orientations, int width, int height)
 
 {
     int i, j, fn;
@@ -92,7 +92,7 @@ vector<cv::Mat *> *create_gabor(int nscales,  int *orientations, int width, int 
     
 
 
-    vector<cv::Mat *> *Gfs = new vector<cv::Mat *>(nfilters);
+    std::vector<cv::Mat *> *Gfs = new std::vector<cv::Mat *>(nfilters);
     for (int i=0; i < nfilters; i++) {
         (*Gfs)[i] = new cv::Mat(height, width, CV_64FC1);
     }
@@ -236,9 +236,9 @@ void prefilt_init(int width, int height)
 
 //=============================================================================================================================
 
-vector<cv::Mat> *response_init(int width, int height)
+std::vector<cv::Mat> *response_init(int width, int height)
 {
-	vector<cv::Mat> *response_images =  (vector<cv::Mat> *) new vector<cv::Mat>;
+	std::vector<cv::Mat> *response_images =  (std::vector<cv::Mat> *) new std::vector<cv::Mat>;
 
 	for (int scl=0; scl < N_SCALES; scl++) {
 		for (int ori=0; ori < orientations[scl]; ori++) {
@@ -279,7 +279,8 @@ cv::Mat prefilt_process(cv::Mat &im, int fc)
     //
     // Add padding
     copyMakeBorder(im, pim, 5, 5, 5, 5, IPL_BORDER_REPLICATE);
-    
+    //copyMakeBorder(im, pim, 5, 5, 5, 5, IPL_BORDER_CONSTANT, cv::Scalar(0,0,0));
+
     width  = pim.cols;
     height = pim.rows;
 
@@ -454,7 +455,7 @@ void Fill_Descriptor(double *desc, int xoffset, int win_width, int xblks, int yb
     nx[0] = xoffset;
     ny[0] = 0;
     
-    //printf("xoffset %d\n", xoffset);
+    
 
     for( i=1; i < xblks+1; i++) {
         nx[i] = (nx[i-1] + width);
@@ -508,7 +509,7 @@ PyObject *PCA_project(PyObject *obj, PyObject *args)
     Get_cvMat_From_Numpy_Mat(pca_desc, cvpca_desc, CV_64FC1);
 
     /*printf("%d %d : %d %d data %d %d : %d %d\n", cvdesc.cols, cvdesc.rows, cvpca_desc.cols, cvpca_desc.rows,   
-                                                 pca_object.mean.cols, pca_object.mean.rows, pca_object.eigenvectors.cols, pca_object.eigenvectors.rows);
+                                                 pca_object.mean.cols, pca_object.mean.rows, pca_object.eigenstd::vectors.cols, pca_object.eigenstd::vectors.rows);
     */
     
     pca_object.project(cvdesc, cvpca_desc);
@@ -543,27 +544,27 @@ PyObject *Init_GIST(PyObject* obj, PyObject *args)
 	return Py_None;
 }
 
-
+/*
 PyObject *Init_PCA(PyObject* obj, PyObject *args)
 {
-    PyArrayObject *mean, *eigenvectors;
+    PyArrayObject *mean, *eigenstd::vectors;
     
 
-    if (!PyArg_ParseTuple(args, "O!O!", &PyArray_Type, &mean, &PyArray_Type, &eigenvectors))  {
+    if (!PyArg_ParseTuple(args, "O!O!", &PyArray_Type, &mean, &PyArray_Type, &eigenstd::vectors))  {
         printf("FAILED PROCESSING Parsing\n");
         return NULL;
     }
     
     Get_cvMat_From_Numpy_Mat(mean, pca_object.mean, CV_64FC1);
-    Get_cvMat_From_Numpy_Mat(eigenvectors, pca_object.eigenvectors, CV_64FC1);
+    Get_cvMat_From_Numpy_Mat(eigenstd::vectors, pca_object.eigenstd::vectors, CV_64FC1);
     
-    PCcount = pca_object.eigenvectors.rows;
+    PCcount = pca_object.eigenstd::vectors.rows;
 
     
     return Py_BuildValue("(ii)", PCcount, pca_object.mean.cols);
 
 }
-
+*/
 
 PyObject *Process_Image(PyObject *obj, PyObject *args)
 {
@@ -647,8 +648,8 @@ extern "C" {
 		{"process", Process_Image, METH_VARARGS},
         {"alloc", Descriptor_Allocate, METH_VARARGS},
         {"get", Get_Descriptor, METH_VARARGS},
-        {"init_pca", Init_PCA, METH_VARARGS},
-        {"pca_project", PCA_project, METH_VARARGS},
+        //{"init_pca", Init_PCA, METH_VARARGS},
+       // {"pca_project", PCA_project, METH_VARARGS},
 
 		/*{"GIST_ProcessT_Get_Info",  GIST_Get_Info, METH_VARARGS},
 		{"GIST_PCA_new",    GIST_PCA_new, METH_VARARGS},

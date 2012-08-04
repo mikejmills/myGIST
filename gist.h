@@ -1,7 +1,7 @@
 #ifndef GIST
 #define GIST
 
-#include <vector.h>
+#include <vector>
 #include <pair.h>
 #include <map.h>
 #include <cv.h>

@@ -278,7 +278,7 @@ cv::Mat prefilt_process(cv::Mat &im, int fc)
     
     //
     // Add padding
-    copyMakeBorder(im, pim, 5, 5, 5, 5, IPL_BORDER_REPLICATE);
+    copyMakeBorder(im, pim, 5, 5, 5, 5,  IPL_BORDER_REFLECT); //IPL_BORDER_REPLICATE);
     //copyMakeBorder(im, pim, 5, 5, 5, 5, IPL_BORDER_CONSTANT, cv::Scalar(0,0,0));
 
     width  = pim.cols;

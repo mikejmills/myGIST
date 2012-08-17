@@ -256,7 +256,7 @@ void format_image(cv::Mat &input, cv::Mat &output)
     
     cv::resize(input, output, cv::Size(IMAGE_WIDTH,IMAGE_HEIGHT));
     cv::cvtColor(output, tmp_image, CV_BGR2GRAY);
-    tmp_image.convertTo(output, CV_64FC1, 1);
+    tmp_image.convertTo(output, CV_64FC1, 1.0/255.0);
 
 }
 //=============================================================================================================================
@@ -433,30 +433,42 @@ void Process(cv::Mat &im)
 int nx[MAX_BLOCKS], ny[MAX_BLOCKS];
 
 
-void Fill_Descriptor(double *desc, int xoffset, int win_width, int xblks, int yblks)
+void Fill_Descriptor(double *desc, 
+                     int xoffset,   int yoffset, 
+                     int win_width, int win_height,
+                     int xblks,     int yblks)
 {
 
     int i, x, y;
     
     int cols = IMAGE_WIDTH, rows = IMAGE_HEIGHT;
 
-    int himg   = cols/2;
+    int hlfimg_width   = cols/2;
+    int hlfimg_height  = rows/2;
 
-    int hwin = win_width/2;
+    int hlfwin_width = win_width/2;
+    int hlfwin_height = win_height/2;
 
     int width  = (win_width/xblks)-1;
-    int height = (rows/yblks)-1;
+    int height = (win_height/yblks)-1;
 
-    xoffset = xoffset + himg - hwin;
-   
-    if (xoffset < 0)                         xoffset = 0;
-    if (xoffset > (IMAGE_WIDTH - win_width)) xoffset = IMAGE_WIDTH - win_width;
+    xoffset = xoffset + hlfimg_width  - hlfwin_width;
+    yoffset = yoffset + hlfimg_height - hlfwin_height;
+
+    printf("hlfimg_height %d hlfwin_height %d\n", hlfimg_height, hlfwin_height);
+
+
+    if (xoffset < 0)                           xoffset = 0;
+    if (xoffset > (IMAGE_WIDTH - win_width))   xoffset = IMAGE_WIDTH - win_width;
+
+    if (yoffset < 0)                           yoffset = 0;
+    if (yoffset > (IMAGE_HEIGHT - win_height)) yoffset = IMAGE_HEIGHT - win_height;
 
     nx[0] = xoffset;
-    ny[0] = 0;
+    ny[0] = yoffset;
     
     
-
+    printf("xoffset %d yoffset %d\n", xoffset, yoffset);
     for( i=1; i < xblks+1; i++) {
         nx[i] = (nx[i-1] + width);
     }
@@ -579,8 +591,9 @@ PyObject *Process_Image(PyObject *obj, PyObject *args)
 	Py_INCREF(imarray);
 
 	Get_cvMat_From_Numpy_Mat(imarray, tmp, 16);
+
 	format_image(tmp, output);
-   
+    
     
 	Process(output);
 	
@@ -625,16 +638,16 @@ PyObject *Descriptor_Allocate(PyObject *obj, PyObject *args)
 
 PyObject *Get_Descriptor(PyObject *obj, PyObject *args)
 {
-    int xblks, yblks, xoffset, win_width;
+    int xblks, yblks, xoffset, win_width, yoffset, win_height;
     PyArrayObject *desc;
 
 
-    if (!PyArg_ParseTuple(args, "(O!ii)ii", &PyArray_Type, &desc, &xblks, &yblks, &xoffset, &win_width))  {
+    if (!PyArg_ParseTuple(args, "(O!ii)iiii", &PyArray_Type, &desc, &xblks, &yblks, &xoffset, &yoffset, &win_width, &win_height))  {
         printf("FAILED PROCESSING Parsing\n");
         return NULL;
     }
 
-    Fill_Descriptor((double *)(desc->data), xoffset, win_width, xblks, yblks);
+    Fill_Descriptor((double *)(desc->data), xoffset, yoffset, win_width, win_height, xblks, yblks);
 
     Py_INCREF(Py_None);
     return Py_None;

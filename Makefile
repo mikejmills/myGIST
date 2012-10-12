@@ -6,8 +6,8 @@ MAC_ARCH=Darwin
 
 CC=g++
 BCFLAGS=-c -g -D_REENTRANT -Wno-deprecated 
-CFLAGS=$(BCFLAGS) `pkg-config opencv-2.3.1 --cflags`  `pkg-config python --cflags` -Wall
-LDFLAGS=-lpthread `pkg-config opencv-2.3.1 --libs`  -L/usr/lib/python2.7/ `pkg-config python --libs` -lfftw3f
+CFLAGS=$(BCFLAGS) `pkg-config opencv --cflags`  `pkg-config python --cflags` -Wall
+LDFLAGS=-lpthread `pkg-config opencv --libs`  -L/usr/lib/python2.7/ `pkg-config python --libs` -lfftw3f
 
 #CFLAGS=$(BCFLAGS) -I/home/mike/OpenCV/build/include/opencv/ -I/home/mike/OpenCV/include/build/opencv/opencv2/ -I/home/mike/OpenCV/build/include/  `pkg-config python --cflags` -Wall
 #LDFLAGS=-lpthread -L/home/mike/OpenCV/build/lib -lopencv_contrib -lopencv_legacy -lopencv_objdetect -lopencv_calib3d -lopencv_features2d -lopencv_video -lopencv_highgui -lopencv_ml -lopencv_imgproc -lopencv_flann -lopencv_core  -L/usr/lib/python2.7/ `pkg-config python --libs`

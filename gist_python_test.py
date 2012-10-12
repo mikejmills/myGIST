@@ -5,15 +5,9 @@ import cv2
 import numpy as np
 
 
-#mean = np.load("PCAmean_8x4.npy")
-#eigens = np.load("PCAeigenvectors_8x4.npy")
-
-mean = np.transpose(mean)
-
-#eigens = np.transpose(eigens)
-
-im = cv2.imread("/Users/mike/Downloads/")
-#im = cv2.imread("./left.jpg")
+cv2.namedWindow("Training Images")
+#im = cv2.imread("/Users/mike/Downloads/")
+im = cv2.imread("./prop.jpg")
 
 print im.shape
 gist.init(im.shape[1],im.shape[0])

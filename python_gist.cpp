@@ -11,7 +11,7 @@
 
 
 int IMAGE_HEIGHT = 240, IMAGE_WIDTH = 320;
-std::vector<cv::Mat *> *Gabor_filters;
+std::vector<cv::Mat>   *Gabor_filters;
 std::vector<cv::Mat>   *Response_Image;
 std::vector<cv::Mat>   *Response_Image_test;
 
@@ -46,198 +46,65 @@ inline void Get_cvMat_From_Numpy_Mat(PyArrayObject *matin, cv::Mat &output, int 
 }
 //=============================================================================================================================
 
-//
-// Swaps the quadrants of the fft so the zero frequency is in the center
-static void fftshift(double *data, int w, int h)
+cv::Mat mkGaborKernel(int ks, double sig, double th, double lm, double ps)
 {
-    int i, j;
-    printf("width %d height %d\n", w, h);
-
-    double *buff = (double *) malloc(w*h*sizeof(double));
-
-    memcpy(buff, data, w*h*sizeof(double));
-
-    for(j = 0; j < (h+1)/2; j++)
+    int hks = (ks-1)/2;
+    double theta = th*CV_PI/180;
+    double psi = ps*CV_PI/180;
+    double del = 2.0/(ks-1);
+    double lmbd =  0.5+lm/100.0;
+    double sigma = sig/ks;
+    double x_theta;
+    double y_theta;
+    cv::Mat kernel(ks,ks, CV_32F);
+    for (int y=-hks; y<=hks; y++)
     {
-        for(i = 0; i < (w+1)/2; i++) {
-            data[(j+h/2)*w + i+w/2] = buff[j*w + i];
-        }
-
-        for(i = 0; i < w/2; i++) {
-            data[(j+h/2)*w + i] = buff[j*w + i+(w+1)/2];
+        for (int x=-hks; x<=hks; x++)
+        {
+            x_theta = x*del*cos(theta)+y*del*sin(theta);
+            y_theta = -x*del*sin(theta)+y*del*cos(theta);
+            kernel.at<float>(hks+y,hks+x) = (float)exp(-0.5*(pow(x_theta,2)+pow(y_theta,2))/pow(sigma,2))* cos(2*CV_PI*x_theta/lmbd + psi);
         }
     }
-
-    for(j = 0; j < h/2; j++)
-    {
-        for(i = 0; i < (w+1)/2; i++) {
-            data[j*w + i+w/2] = buff[(j+(h+1)/2)*w + i];
-        }
-
-        for(i = 0; i < w/2; i++) {
-            data[j*w + i] = buff[(j+(h+1)/2)*w + i+(w+1)/2];
-        }
-    }
-    free(buff);
+    return kernel;
 }
 
-
-
-std::vector<cv::Mat *> *create_gabor(int nscales,  int *orientations, int width, int height)
+std::vector<cv::Mat> *create_gabor(int nscales,  int *orientations)
 
 {
-    int i, j, fn;
     int nfilters = 0;
-    printf("width %d height %d\n", width, height);
+    int kernel_size = 21;
     
-    for(i=0;i<nscales;i++)  
-        nfilters += orientations[i];
-    
+    for (int i=0; i < nscales; i++) nfilters += orientations[i];
 
-
-    std::vector<cv::Mat *> *Gfs = new std::vector<cv::Mat *>(nfilters);
-    for (int i=0; i < nfilters; i++) {
-        (*Gfs)[i] = new cv::Mat(height, width, CV_64FC1);
-    }
-    
-    double **param = (double **) malloc(nscales * nfilters * sizeof(double *));
-
-    for(i = 0; i < nscales * nfilters; i++) {
-        param[i] = (double *) malloc(4*sizeof(double));
-    }
-
-    double *fx = (double *) malloc(width*height*sizeof(double));
-    double *fy = (double *) malloc(width*height*sizeof(double));
-    double *fr = (double *) malloc(width*height*sizeof(double));
-    double *f  = (double *) malloc(width*height*sizeof(double));
-
-    int l = 0;
-
-    for(i = 1; i <= nscales; i++)
-    {
-        for(j = 1; j <= orientations[i-1]; j++)
-        {
-            param[l][0] = 0.35f;
-            param[l][1] = 0.3/pow(1.85f, i-1);
-            param[l][2] = 16*powf(orientations[i-1], 2)/powf(32, 2);
-            param[l][3] = M_PI/(orientations[i-1])*(j-1);
-            l++;
+    std::vector<cv::Mat> *Gfs = new std::vector<cv::Mat>(nfilters);
+    int filter = 0;
+    for (int scale = 0; scale < nscales; scale++){
+        for (int ori =0; ori < orientations[scale]; ori++) {
+            (*Gfs)[filter++] = mkGaborKernel(kernel_size, 4 - scale, ori * 90/orientations[scale], 50, 90);    
         }
     }
-
-    for(j = 0; j < height; j++)
-    {
-        for(i = 0; i < width; i++)
-        {
-            fx[j*width + i] = (double) i - (double)width/2.0f;
-            fy[j*width + i] = (double) j - (double)height/2.0f;
-
-            fr[j*width + i] = sqrt(fx[j*width + i]*fx[j*width + i] + fy[j*width + i]*fy[j*width + i]);
-            f[j*width + i]  = atan2(fy[j*width + i], fx[j*width + i]);
-            
-        }
+    /*
+    //
+    // Low frequency
+    for (int i=0; i < 3; i++) {
+        (*Gfs)[i] = mkGaborKernel(kernel_size, 4, i * 90/orientations[0], 50, 90);
     }
-
-    fftshift(fr, width, height);
-    fftshift(f, width, height);
-    
-    int   cols = ((*Gfs)[0])->cols;
-
-    for(fn = 0; fn < nfilters; fn++)
-    {
-        double *f_ptr  = f;
-        double *fr_ptr = fr;
-
-       // printf("Filter %d %f %f\n", fn, param[fn][3], *f_ptr);
-
-        double *data = (double *)((*Gfs)[fn])->data;
-        
-        for(j = 0; j < height; j++)
-        {
-            for(i = 0; i < width; i++)
-            {
-                double tmp = *f_ptr++ + param[fn][3];
-
-                if(tmp < -M_PI) {
-                    tmp += 2.0f*M_PI;
-                }
-                else if (tmp > M_PI) {
-                    tmp -= 2.0f*M_PI;
-                }
-                
-                //data[j*cols+i] 
-                (*Gfs)[fn]->at<double>(j,i)= exp(-10.0f*param[fn][0]*(*fr_ptr/height/param[fn][1]-1)*
-                                    (*fr_ptr/width/param[fn][1]-1)-2.0f*param[fn][2]*M_PI*tmp*tmp);
-
-               
-                fr_ptr++;
-                
-            }
-            
-            
-        }
-        
-        
+    /*
+    //
+    // Medium freqency
+    for (int i=0; i < orientations[1]; i++) {
+        (*Gfs)[i+orientations[0]] = mkGaborKernel(kernel_size, 3, i * 90/orientations[1], 50, 90);
     }
     
-    for(i = 0; i < nscales * nfilters; i++) {
-        free(param[i]);
+    //
+    // high freqency
+    for (int i=0; i < orientations[2]; i++) {
+        (*Gfs)[i+orientations[1]] = mkGaborKernel(kernel_size, 2, i * 90/orientations[1], 50, 90);
     }
-    free(param);
-
-    free(fx);
-    free(fy);
-    free(fr);
-    free(f);
+    */
     
     return Gfs;
-}
-
-//=============================================================================================================================
-fftwf_complex *gin1, *gin2, *gout1, *gout2;
-fftwf_plan     gfft, gifft;
-
-void gfft_init(int width, int height)
-{
-    printf("width %d height %d\n", width, height);
-    gin1  = (fftwf_complex *) fftwf_malloc(width*height*sizeof(fftwf_complex));
-    gin2  = (fftwf_complex *) fftwf_malloc(width*height*sizeof(fftwf_complex));
-    gout1 = (fftwf_complex *) fftwf_malloc(width*height*sizeof(fftwf_complex));
-    gout2 = (fftwf_complex *) fftwf_malloc(width*height*sizeof(fftwf_complex));
-
-    gfft  = fftwf_plan_dft_2d(width, height, gin1, gout1, FFTW_FORWARD, FFTW_ESTIMATE);
-    gifft = fftwf_plan_dft_2d(width, height, gout2, gin2, FFTW_BACKWARD, FFTW_ESTIMATE);
-
-}
-
-
-
-//=============================================================================================================================
-double        *fx, *fy, *gfc;
-fftwf_complex *in1, *in2, *out;
-fftwf_plan     fft1, ifft1, fft2, ifft2;
-
-void prefilt_init(int width, int height)
-{
-    //PF_Whitening, PF_Normalization;
-    width  = width  + 10;
-    height = height + 10;
-    printf("width %d height %d\n", width, height);
-    
-    fx  = (double *) fftwf_malloc(width*height*sizeof(double));
-    fy  = (double *) fftwf_malloc(width*height*sizeof(double));
-    gfc = (double *) fftwf_malloc(width*height*sizeof(double));
-
-    in1 = (fftwf_complex *) fftwf_malloc(width*height*sizeof(fftwf_complex));
-    in2 = (fftwf_complex *) fftwf_malloc(width*height*sizeof(fftwf_complex));
-    out = (fftwf_complex *) fftwf_malloc(width*height*sizeof(fftwf_complex));
-
-    fft1  = fftwf_plan_dft_2d(width, height, in1, out, FFTW_FORWARD, FFTW_ESTIMATE);
-    ifft1 = fftwf_plan_dft_2d(width, height, out, in2, FFTW_BACKWARD, FFTW_ESTIMATE);
-
-    fft2  = fftwf_plan_dft_2d(width, height, in1, out, FFTW_FORWARD, FFTW_ESTIMATE);
-    ifft2 = fftwf_plan_dft_2d(width, height, out, in2, FFTW_BACKWARD, FFTW_ESTIMATE);
-
 }
 
 //=============================================================================================================================
@@ -245,12 +112,11 @@ void prefilt_init(int width, int height)
 std::vector<cv::Mat> *response_init(int width, int height)
 {
 	std::vector<cv::Mat> *response_images =  (std::vector<cv::Mat> *) new std::vector<cv::Mat>;
-    Response_Image_test = (std::vector<cv::Mat> *) new std::vector<cv::Mat>;
-
+    
 	for (int scl=0; scl < N_SCALES; scl++) {
 		for (int ori=0; ori < orientations[scl]; ori++) {
-			response_images->push_back(cv::Mat::zeros(height+1, width+1, CV_64FC1)); // +1 for some tricky Integral image stuff later
-            Response_Image_test->push_back(cv::Mat::zeros(height, width, CV_64FC1));
+			response_images->push_back(cv::Mat(height+1, width+1, CV_64FC1)); // +1 for some Integral image stuff later
+            
 		}
 	}
 
@@ -263,18 +129,14 @@ void format_image(cv::Mat &input, cv::Mat &output)
 {
     
     cv::resize(input, output, cv::Size(IMAGE_WIDTH,IMAGE_HEIGHT));
-    //output = input(cv::Rect(input.cols/2-IMAGE_WIDTH/2, input.rows/2-IMAGE_HEIGHT/2, IMAGE_WIDTH, IMAGE_HEIGHT));
-    //printf("%d %d\n", input.cols, input.rows);
-
+    
     cv::cvtColor(output, tmp_image, CV_BGR2GRAY);
     tmp_image.convertTo(output, CV_64FC1, 1.0/255.0);
     
-    //cv::imshow("Training Images", output);
-    //printf("display\n");
-
+    
 }
 //=============================================================================================================================
-cv::Mat prefilt_process(cv::Mat &im, int fc)
+/*cv::Mat prefilt_process(cv::Mat &im, int fc)
 {
     cv::Mat pim;
     int i,j;
@@ -381,71 +243,29 @@ cv::Mat prefilt_process(cv::Mat &im, int fc)
     cv::Mat res = pim(cv::Rect(5, 5, pim.cols-10, pim.rows-10));
     
     return res;
-}
+}*/
 //=============================================================================================================================
 void Process(cv::Mat &im)
 {
-    int height = im.rows;
-    int width  = im.cols;
     
-    im = prefilt_process(im, 4);
+    //im = prefilt_process(im, 4);
     
     
-    
-    for(int j = 0; j < height; j++)
-    {
-        for(int i = 0; i < width; i++)
-        {
-            gin1[j*width + i][0] = im.at<double>(j,i);
-    
-            gin1[j*width + i][1] = 0.0f;
-        }
-    }
-    
-
-    fftwf_execute(gfft);
-
     for (unsigned int k=0; k < Gabor_filters->size(); k++) {
-
-        
-        for(int j = 0; j < height; j++)
-        {
-            for(int i = 0; i < width; i++)
-            {
-                //double *data = (double *)((*Gabor_filters)[k]->data);
-                gout2[j*width+i][0] = gout1[j*width+i][0] * (*Gabor_filters)[k]->at<double>(j,i); //data[j*(*Gabor_filters)[k]->cols+i];
-                gout2[j*width+i][1] = gout1[j*width+i][1] * (*Gabor_filters)[k]->at<double>(j,i); //data[j*(*Gabor_filters)[k]->cols+i];
-
-                
-            }
-        }
-
-        fftwf_execute(gifft);
-
-        //
-        // Process the results into a integral image note the crazy indexes
-        int h = height-1;
-        int w = width-1;
-        for(int j = 0; j < h; j++)
-        {
-            for(int i = 0; i < w; i++) {
-            	
-                 /*(*Response_Image)[k].at<double>(j+1, i+1) = (double)sqrt(gin2[j*width+i][0]*gin2[j*width+i][0]+gin2[j*width+i][1]*gin2[j*width+i][1])/(width*height)
-                                                            + (*Response_Image)[k].at<double>(j+1,i)
-                                                            + (*Response_Image)[k].at<double>(j,i+1)
-                                                            - (*Response_Image)[k].at<double>(j,i);*/
-                (*Response_Image_test)[k].at<double>(j, i) = (double)sqrt(gin2[j*width+i][0]*gin2[j*width+i][0]+gin2[j*width+i][1]*gin2[j*width+i][1])/(width*height);
-            }
-        }
-        
-        
-    }
-
-    //cv::normalize((*Response_Image_test)[0], (*Response_Image_test)[0], 0, 1, CV_MINMAX);
-    //cv::imshow("Training Images", (*Response_Image_test)[0]);
+        cv::filter2D(im, tmp_image, CV_64F, (*Gabor_filters)[k]); 
+        cv::pow(tmp_image, 2.0, tmp_image);
+        /*if (k == 15) {
+            //cv::normalize(tmp_image, tmp_image, 0, 1, CV_MINMAX);
+            cv::imshow("Training Images", tmp_image);
+            cv::waitKey(0);
+           
     
-    //cv::normalize(*((*Gabor_filters)[0]), *((*Gabor_filters)[0]), 0, 1, CV_MINMAX);
-    //cv::imshow("Training Images", *((*Gabor_filters)[0]));
+        }*/
+
+        cv::integral(tmp_image, (*Response_Image)[k]);
+    }
+    
+    
     
 }
 //=============================================================================================================================
@@ -566,9 +386,7 @@ PyObject *Init_GIST(PyObject* obj, PyObject *args)
 	}
 	
 
-	Gabor_filters = create_gabor(N_SCALES, orientations, cols, rows);
-	prefilt_init(cols, rows);
-	gfft_init(cols, rows);
+	Gabor_filters = create_gabor(N_SCALES, orientations);
 	Response_Image = response_init(cols, rows);
 
 	IMAGE_WIDTH  = cols;

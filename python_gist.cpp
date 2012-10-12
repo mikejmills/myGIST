@@ -13,6 +13,7 @@
 int IMAGE_HEIGHT = 240, IMAGE_WIDTH = 320;
 std::vector<cv::Mat *> *Gabor_filters;
 std::vector<cv::Mat>   *Response_Image;
+std::vector<cv::Mat>   *Response_Image_test;
 
 /*
 inline cv::Mat Get_cvMat_From_Numpy_Mat(cv::Mat matin) 
@@ -50,6 +51,7 @@ inline void Get_cvMat_From_Numpy_Mat(PyArrayObject *matin, cv::Mat &output, int 
 static void fftshift(double *data, int w, int h)
 {
     int i, j;
+    printf("width %d height %d\n", w, h);
 
     double *buff = (double *) malloc(w*h*sizeof(double));
 
@@ -86,6 +88,7 @@ std::vector<cv::Mat *> *create_gabor(int nscales,  int *orientations, int width,
 {
     int i, j, fn;
     int nfilters = 0;
+    printf("width %d height %d\n", width, height);
     
     for(i=0;i<nscales;i++)  
         nfilters += orientations[i];
@@ -115,7 +118,7 @@ std::vector<cv::Mat *> *create_gabor(int nscales,  int *orientations, int width,
         for(j = 1; j <= orientations[i-1]; j++)
         {
             param[l][0] = 0.35f;
-            param[l][1] = 0.3/powf(1.85f, i-1);
+            param[l][1] = 0.3/pow(1.85f, i-1);
             param[l][2] = 16*powf(orientations[i-1], 2)/powf(32, 2);
             param[l][3] = M_PI/(orientations[i-1])*(j-1);
             l++;
@@ -129,8 +132,8 @@ std::vector<cv::Mat *> *create_gabor(int nscales,  int *orientations, int width,
             fx[j*width + i] = (double) i - (double)width/2.0f;
             fy[j*width + i] = (double) j - (double)height/2.0f;
 
-            fr[j*width + i] = sqrtf(fx[j*width + i]*fx[j*width + i] + fy[j*width + i]*fy[j*width + i]);
-            f[j*width + i]  = atan2f(fy[j*width + i], fx[j*width + i]);
+            fr[j*width + i] = sqrt(fx[j*width + i]*fx[j*width + i] + fy[j*width + i]*fy[j*width + i]);
+            f[j*width + i]  = atan2(fy[j*width + i], fx[j*width + i]);
             
         }
     }
@@ -162,7 +165,8 @@ std::vector<cv::Mat *> *create_gabor(int nscales,  int *orientations, int width,
                     tmp -= 2.0f*M_PI;
                 }
                 
-                data[j*cols+i] = expf(-10.0f*param[fn][0]*(*fr_ptr/height/param[fn][1]-1)*
+                //data[j*cols+i] 
+                (*Gfs)[fn]->at<double>(j,i)= exp(-10.0f*param[fn][0]*(*fr_ptr/height/param[fn][1]-1)*
                                     (*fr_ptr/width/param[fn][1]-1)-2.0f*param[fn][2]*M_PI*tmp*tmp);
 
                
@@ -195,6 +199,7 @@ fftwf_plan     gfft, gifft;
 
 void gfft_init(int width, int height)
 {
+    printf("width %d height %d\n", width, height);
     gin1  = (fftwf_complex *) fftwf_malloc(width*height*sizeof(fftwf_complex));
     gin2  = (fftwf_complex *) fftwf_malloc(width*height*sizeof(fftwf_complex));
     gout1 = (fftwf_complex *) fftwf_malloc(width*height*sizeof(fftwf_complex));
@@ -217,6 +222,7 @@ void prefilt_init(int width, int height)
     //PF_Whitening, PF_Normalization;
     width  = width  + 10;
     height = height + 10;
+    printf("width %d height %d\n", width, height);
     
     fx  = (double *) fftwf_malloc(width*height*sizeof(double));
     fy  = (double *) fftwf_malloc(width*height*sizeof(double));
@@ -239,10 +245,12 @@ void prefilt_init(int width, int height)
 std::vector<cv::Mat> *response_init(int width, int height)
 {
 	std::vector<cv::Mat> *response_images =  (std::vector<cv::Mat> *) new std::vector<cv::Mat>;
+    Response_Image_test = (std::vector<cv::Mat> *) new std::vector<cv::Mat>;
 
 	for (int scl=0; scl < N_SCALES; scl++) {
 		for (int ori=0; ori < orientations[scl]; ori++) {
 			response_images->push_back(cv::Mat::zeros(height+1, width+1, CV_64FC1)); // +1 for some tricky Integral image stuff later
+            Response_Image_test->push_back(cv::Mat::zeros(height, width, CV_64FC1));
 		}
 	}
 
@@ -255,8 +263,14 @@ void format_image(cv::Mat &input, cv::Mat &output)
 {
     
     cv::resize(input, output, cv::Size(IMAGE_WIDTH,IMAGE_HEIGHT));
+    //output = input(cv::Rect(input.cols/2-IMAGE_WIDTH/2, input.rows/2-IMAGE_HEIGHT/2, IMAGE_WIDTH, IMAGE_HEIGHT));
+    //printf("%d %d\n", input.cols, input.rows);
+
     cv::cvtColor(output, tmp_image, CV_BGR2GRAY);
     tmp_image.convertTo(output, CV_64FC1, 1.0/255.0);
+    
+    //cv::imshow("Training Images", output);
+    //printf("display\n");
 
 }
 //=============================================================================================================================
@@ -278,8 +292,8 @@ cv::Mat prefilt_process(cv::Mat &im, int fc)
     
     //
     // Add padding
-    copyMakeBorder(im, pim, 5, 5, 5, 5,  IPL_BORDER_REFLECT); //IPL_BORDER_REPLICATE);
-    //copyMakeBorder(im, pim, 5, 5, 5, 5, IPL_BORDER_CONSTANT, cv::Scalar(0,0,0));
+    //copyMakeBorder(im, pim, 5, 5, 5, 5,  IPL_BORDER_REPLICATE);
+    copyMakeBorder(im, pim, 5, 5, 5, 5, IPL_BORDER_CONSTANT, cv::Scalar(0,0,0));
 
     width  = pim.cols;
     height = pim.rows;
@@ -391,9 +405,9 @@ void Process(cv::Mat &im)
 
     fftwf_execute(gfft);
 
-    for (int k=0; k < Gabor_filters->size(); k++) {
+    for (unsigned int k=0; k < Gabor_filters->size(); k++) {
 
-
+        
         for(int j = 0; j < height; j++)
         {
             for(int i = 0; i < width; i++)
@@ -401,6 +415,8 @@ void Process(cv::Mat &im)
                 //double *data = (double *)((*Gabor_filters)[k]->data);
                 gout2[j*width+i][0] = gout1[j*width+i][0] * (*Gabor_filters)[k]->at<double>(j,i); //data[j*(*Gabor_filters)[k]->cols+i];
                 gout2[j*width+i][1] = gout1[j*width+i][1] * (*Gabor_filters)[k]->at<double>(j,i); //data[j*(*Gabor_filters)[k]->cols+i];
+
+                
             }
         }
 
@@ -414,16 +430,22 @@ void Process(cv::Mat &im)
         {
             for(int i = 0; i < w; i++) {
             	
-                (*Response_Image)[k].at<double>(j+1, i+1) = (double)sqrt(gin2[j*width+i][0]*gin2[j*width+i][0]+gin2[j*width+i][1]*gin2[j*width+i][1])/(width*height)
+                 /*(*Response_Image)[k].at<double>(j+1, i+1) = (double)sqrt(gin2[j*width+i][0]*gin2[j*width+i][0]+gin2[j*width+i][1]*gin2[j*width+i][1])/(width*height)
                                                             + (*Response_Image)[k].at<double>(j+1,i)
                                                             + (*Response_Image)[k].at<double>(j,i+1)
-                                                            - (*Response_Image)[k].at<double>(j,i);
+                                                            - (*Response_Image)[k].at<double>(j,i);*/
+                (*Response_Image_test)[k].at<double>(j, i) = (double)sqrt(gin2[j*width+i][0]*gin2[j*width+i][0]+gin2[j*width+i][1]*gin2[j*width+i][1])/(width*height);
             }
         }
         
         
     }
-   
+
+    //cv::normalize((*Response_Image_test)[0], (*Response_Image_test)[0], 0, 1, CV_MINMAX);
+    //cv::imshow("Training Images", (*Response_Image_test)[0]);
+    
+    //cv::normalize(*((*Gabor_filters)[0]), *((*Gabor_filters)[0]), 0, 1, CV_MINMAX);
+    //cv::imshow("Training Images", *((*Gabor_filters)[0]));
     
 }
 //=============================================================================================================================
@@ -455,7 +477,7 @@ void Fill_Descriptor(double *desc,
     xoffset = xoffset + hlfimg_width  - hlfwin_width;
     yoffset = yoffset + hlfimg_height - hlfwin_height;
 
-    printf("hlfimg_height %d hlfwin_height %d\n", hlfimg_height, hlfwin_height);
+    
 
 
     if (xoffset < 0)                           xoffset = 0;
@@ -468,7 +490,7 @@ void Fill_Descriptor(double *desc,
     ny[0] = yoffset;
     
     
-    printf("xoffset %d yoffset %d\n", xoffset, yoffset);
+    
     for( i=1; i < xblks+1; i++) {
         nx[i] = (nx[i-1] + width);
     }
@@ -481,7 +503,7 @@ void Fill_Descriptor(double *desc,
     double denom = (double)(ny[1]-ny[0])*(nx[1]-nx[0]);
    
 
-    for (int gbr = 0; gbr < Response_Image->size(); gbr++) {
+    for (unsigned int gbr = 0; gbr < Response_Image->size(); gbr++) {
 
         cv::Mat src = (*Response_Image)[gbr];
         double *res = desc+gbr*xblks*yblks;

@@ -3,9 +3,9 @@
 #include <vector>
 #include <opencv/cv.h>
 #include <opencv2/highgui/highgui.hpp>
-#include <fftw3.h>
 #include <Python.h>
 #include <numpy/arrayobject.h>
+#include <time.h>
 
 #include <numpy/ndarrayobject.h>
 
@@ -250,22 +250,23 @@ void Process(cv::Mat &im)
     
     //im = prefilt_process(im, 4);
     
-    
+    //clock_t start = clock();
     for (unsigned int k=0; k < Gabor_filters->size(); k++) {
+
         cv::filter2D(im, tmp_image, CV_64F, (*Gabor_filters)[k]); 
         cv::pow(tmp_image, 2.0, tmp_image);
-        /*if (k == 15) {
-            //cv::normalize(tmp_image, tmp_image, 0, 1, CV_MINMAX);
+
+        /*if (k == 7) {
+            cv::normalize(tmp_image, tmp_image, 0, 1, CV_MINMAX);
             cv::imshow("Training Images", tmp_image);
             cv::waitKey(0);
-           
-    
         }*/
 
         cv::integral(tmp_image, (*Response_Image)[k]);
     }
-    
-    
+
+    //clock_t end = clock();
+    //printf("Proc time %f\n", float(end - start)/CLOCKS_PER_SEC );
     
 }
 //=============================================================================================================================

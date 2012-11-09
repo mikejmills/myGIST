@@ -51,24 +51,26 @@ inline void Get_cvMat_From_Numpy_Mat(PyArrayObject *matin, cv::Mat &output, int 
 }
 //=============================================================================================================================
 
-cv::Mat mkGaborKernel(int ks, double sig, double th, double lm, double ps)
+cv::Mat mkGaborKernel(int ks, float sig, float th, float lm, float ps)
 {
     int hks = (ks-1)/2;
-    double theta = th*CV_PI/180;
-    double psi = ps*CV_PI/180;
-    double del = 2.0/(ks-1);
-    double lmbd =  0.5+lm/100.0;
-    double sigma = sig/ks;
-    double x_theta;
-    double y_theta;
+    float theta = th*CV_PI/180;
+    float psi = ps*CV_PI/180;
+    float del = 2.0/(ks-1);
+    float lmbd =  0.5+lm/100.0;
+    float sigma = sig/ks;
+    float x_theta;
+    float y_theta;
+    
     cv::Mat kernel(ks,ks, CV_32F);
+
     for (int y=-hks; y<=hks; y++)
     {
         for (int x=-hks; x<=hks; x++)
         {
-            x_theta = x*del*cos(theta)+y*del*sin(theta);
-            y_theta = -x*del*sin(theta)+y*del*cos(theta);
-            kernel.at<double>(hks+y,hks+x) = (double)exp(-0.5*(pow(x_theta,2)+pow(y_theta,2))/pow(sigma,2))* cos(2*CV_PI*x_theta/lmbd + psi);
+            x_theta = x*del*cosf(theta)+y*del*sinf(theta);
+            y_theta = -x*del*sinf(theta)+y*del*cosf(theta);
+            kernel.at<float>(hks+y,hks+x) = (float)expf(-0.5*(powf(x_theta,2)+powf(y_theta,2))/powf(sigma,2))* cosf(2*CV_PI*x_theta/lmbd + psi);
         }
     }
     return kernel;
@@ -239,7 +241,7 @@ void format_image(cv::Mat &input, cv::Mat &output)
 //    cv::Mat proctmp(IMAGE_HEIGHT -22, IMAGE_WIDTH-22, CV_64F);
 //    cv::gpu::GpuMat gpu_img(IMAGE_HEIGHT, IMAGE_WIDTH, CV_64F);
 
-cv::gpu::GpuMat gpu_img, gpu_tmp;
+cv::gpu::GpuMat gpu_img, gpu_tmp, gpu_integral;
 cv::Mat         proc_img;
 
 //=============================================================================================================================
@@ -252,38 +254,23 @@ void Process(cv::Mat &im)
     im.convertTo(im, CV_32F);
     
     gpu_img.upload(im);
-
+    
     for (unsigned int k=0; k < Gabor_filters->size(); k++) {
     
-        //cv::gpu::convolve(gpu_img, (*Gabor_filters)[k], gpu_tmp);
-        //cv::gpu::pow(gpu_tmp, 2.0, gpu_tmp);
+        cv::gpu::convolve(gpu_img, (*Gabor_filters)[k], gpu_tmp);
+        cv::gpu::pow(gpu_tmp, 2.0, gpu_tmp);
+        gpu_integral.download(proc_img);
         
-        //gpu_tmp.download(proc_img);
-        
-        gpu_tmp.download(im);
-
-        //cv::normalize(proc_img, proc_img, 0, 1, CV_MINMAX);
         /*
         if (k == 0) {
             //cv::normalize(proc_img, proc_img, 0, 1, CV_MINMAX);
             cv::imshow("Training Images", proc_img);
             //cv::waitKey(0);
         }
-            
-        for (int y=0; y < proc_img.rows; y++)
-            for (int x = 0; x < proc_img.cols; x++)
-                if (std::isnan(proc_img.at<double>(y, x))) printf("*******PROC IMAGE FAIL*******\n"); 
         */
+         
+        cv::integral(proc_img, (*Response_Image)[k]);
         
-        cv::Mat tmp;
-        //proc_img.convertTo(proc_im, CV_64F);
-        im.convertTo(im, CV_64F);
-        cv::integral(im, tmp);
-
-        for (int y=0; y < tmp.rows; y++)
-            for (int x = 0; x < tmp.cols; x++)
-                if (std::isnan(tmp.at<double>(y, x))) printf("&&&&&&&&&INTEGRAL FAIL&&&&&&&&&\n"); 
-
     }
 
     clock_t end = clock();
@@ -421,8 +408,9 @@ PyObject *Init_GIST(PyObject* obj, PyObject *args)
     proc_img  = cv::Mat(IMAGE_HEIGHT-(KERNEL_SIZE+1), IMAGE_WIDTH-(KERNEL_SIZE+1), CV_32F);
     gpu_img   = cv::gpu::GpuMat(IMAGE_HEIGHT, IMAGE_WIDTH, CV_32F);
     gpu_tmp   = cv::gpu::GpuMat(IMAGE_HEIGHT-(KERNEL_SIZE+1), IMAGE_WIDTH-(KERNEL_SIZE+1), CV_32F);
+    gpu_integral   = cv::gpu::GpuMat(IMAGE_HEIGHT-(KERNEL_SIZE+1)+1, IMAGE_WIDTH-(KERNEL_SIZE+1)+1, CV_32F);
     
-    Response_Image = response_init(IMAGE_HEIGHT-(KERNEL_SIZE+1), IMAGE_WIDTH-(KERNEL_SIZE+1));
+    Response_Image = response_init(IMAGE_HEIGHT-(KERNEL_SIZE+1)+1, IMAGE_WIDTH-(KERNEL_SIZE+1)+1);
 
 
 	Py_INCREF(Py_None);

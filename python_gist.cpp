@@ -16,23 +16,11 @@
 int IMAGE_HEIGHT = 240, IMAGE_WIDTH = 320;
 //std::vector<cv::Mat>       *Gabor_filters;
 std::vector<cv::gpu::GpuMat> *Gabor_filters;
+std::vector<cv::gpu::GpuMat> *Gpu_Response_Images;
 std::vector<cv::Mat>         *Response_Image;
 std::vector<cv::Mat>         *Response_Image_test;
 
 
-/*
-inline cv::Mat Get_cvMat_From_Numpy_Mat(cv::Mat matin) 
-		const npy_intp* _strides = PyArray_STRIDES(matin);
-        const npy_intp* _sizes = PyArray_DIMS(matin);
-        int    size[CV_MAX_DIM+1];
-        size_t step[CV_MAX_DIM+1];
-        size[0] = (int)_sizes[0];
-        size[1] = (int)_sizes[1];
-		step[0] = (size_t) _strides[0];
-        step[1] = (size_t) _strides[1];
-        cv::Mat tmp(2, size, 16, PyArray_DATA(matin), step); // 16 is the image type using builting functions returns wrong type
-        return tmp;
-}*/
 
 inline void Get_cvMat_From_Numpy_Mat(PyArrayObject *matin, cv::Mat &output, int type)
 {
@@ -45,8 +33,6 @@ inline void Get_cvMat_From_Numpy_Mat(PyArrayObject *matin, cv::Mat &output, int 
     size[1] = (int)_sizes[1];
     step[0] = (size_t) _strides[0];
     step[1] = (size_t) _strides[1];
-    //printf("%d %d\n", PyArray_TYPE(matin), NPY_UINT8);
-   // exit(1);
     output = cv::Mat(2, size, type, PyArray_DATA(matin), step); // 16 is the image type using builting functions returns wrong type
 }
 //=============================================================================================================================
@@ -88,7 +74,7 @@ std::vector<cv::gpu::GpuMat> *create_gabor(int nscales,  int *orientations)
     int filter = 0;
     for (int scale = 0; scale < nscales; scale++){
         for (int ori =0; ori < orientations[scale]; ori++) {
-            (*Gfs)[filter] = cv::gpu::GpuMat(KERNEL_SIZE, KERNEL_SIZE, CV_64F);
+            (*Gfs)[filter] = cv::gpu::GpuMat(KERNEL_SIZE, KERNEL_SIZE, CV_32F);
             (*Gfs)[filter].upload(mkGaborKernel(KERNEL_SIZE, 4 - scale, ori * 90/orientations[scale], 50, 90));
             filter++;
         }
@@ -97,6 +83,22 @@ std::vector<cv::gpu::GpuMat> *create_gabor(int nscales,  int *orientations)
     
     return Gfs;
 }
+
+//=============================================================================================================================
+
+std::vector<cv::gpu::GpuMat> *create_gpu_response_images(int nfilters, int width, int height)
+
+{
+    
+    std::vector<cv::gpu::GpuMat> *gpu_responses = new std::vector< cv::gpu::GpuMat >(nfilters);
+
+    for (int f = 0; f < nfilters; f++){
+        (*gpu_responses)[f] = cv::gpu::GpuMat(height, width, CV_32F);
+    }
+    
+    return gpu_responses;
+}
+
 
 //=============================================================================================================================
 
@@ -128,7 +130,8 @@ void format_image(cv::Mat &input, cv::Mat &output)
     
 }
 //=============================================================================================================================
-/*cv::Mat prefilt_process(cv::Mat &im, int fc)
+/*
+cv::Mat prefilt_process(cv::Mat &im, int fc)
 {
     cv::Mat pim;
     int i,j;
@@ -241,41 +244,50 @@ void format_image(cv::Mat &input, cv::Mat &output)
 //    cv::Mat proctmp(IMAGE_HEIGHT -22, IMAGE_WIDTH-22, CV_64F);
 //    cv::gpu::GpuMat gpu_img(IMAGE_HEIGHT, IMAGE_WIDTH, CV_64F);
 
+
+
 cv::gpu::GpuMat gpu_img, gpu_tmp, gpu_integral;
 cv::Mat         proc_img;
+
+void prefilt_process()
+{
+    cv::gpu::log(gpu_img, gpu_img);
+
+    
+}
 
 //=============================================================================================================================
 void Process(cv::Mat &im)
 {
-    
+    //clock_t start = clock();
     //im = prefilt_process(im, 4);
-    clock_t start = clock();
 
     im.convertTo(im, CV_32F);
     
+    
     gpu_img.upload(im);
     
+    //printf("Upload time %f\n", float(end - start)/CLOCKS_PER_SEC);
+    //
+    // Do the GPU calculations and store the results into several Response images
     for (unsigned int k=0; k < Gabor_filters->size(); k++) {
-    
+        //cv::gpu::equalizeHist(gpu_img, gpu_img);
+        //cv::gpu::GaussianBlur(gpu_img, gpu_img, cv::Size(9,9), 2.0, 2.0); // cv::BORDER_DEFAULT, -1);
         cv::gpu::convolve(gpu_img, (*Gabor_filters)[k], gpu_tmp);
-        cv::gpu::pow(gpu_tmp, 2.0, gpu_tmp);
-        gpu_integral.download(proc_img);
-        
-        /*
-        if (k == 0) {
-            //cv::normalize(proc_img, proc_img, 0, 1, CV_MINMAX);
-            cv::imshow("Training Images", proc_img);
-            //cv::waitKey(0);
-        }
-        */
-         
+        cv::gpu::pow(gpu_tmp, 2.0, (*Gpu_Response_Images)[k]);
+    }
+
+    clock_t start = clock();
+    //
+    // Download and integrate all the results into the host memory
+    for (unsigned int k=0; k < Gabor_filters->size(); k++) {
+        (*Gpu_Response_Images)[k].download(proc_img);        
         cv::integral(proc_img, (*Response_Image)[k]);
         
     }
 
     clock_t end = clock();
-    printf("Proc time %f\n", double(end - start)/CLOCKS_PER_SEC );
-    
+    printf("Download Time %f\n", float(end - start)/CLOCKS_PER_SEC );
 }
 //=============================================================================================================================
 #define MAX_BLOCKS 10
@@ -341,14 +353,14 @@ void Fill_Descriptor(double *desc,
         for(y = 0; y < yblks; y++) {
             for(x = 0; x < xblks; x++) { 
 
-                double mean   = (   src.at<double>(ny[y+1], nx[x+1]) 
+                double mean   = (  src.at<double>(ny[y+1], nx[x+1]) 
                                  + src.at<double>(ny[y], nx[x]) 
                                  - src.at<double>(ny[y+1], nx[x])
                                  - src.at<double>(ny[y], nx[x+1]) );
                 
 
                 res[y*xblks+x]=  mean / denom;
-                //if (std::isnan(res[y*xblks+x])) printf("blah %f %f %f %f %f %f\n", mean, denom, src.at<double>(ny[y+1], nx[x+1]), src.at<double>(ny[y], nx[x]), src.at<double>(ny[y+1], nx[x]), src.at<double>(ny[y], nx[x+1]) );
+               
              }
         }
     
@@ -357,35 +369,6 @@ void Fill_Descriptor(double *desc,
 
 }
 
-//=============================================================================================================================
-cv::PCA pca_object;
-int PCcount = 0;
-
-PyObject *PCA_project(PyObject *obj, PyObject *args)
-{
-    PyArrayObject  *desc, *pca_desc;
-    cv::Mat        cvdesc, cvpca_desc;
-
-    if (!PyArg_ParseTuple(args, "O!O!",  &PyArray_Type, &desc, &PyArray_Type, &pca_desc))  {
-        printf("FAILED PROCESSING Parsing\n");
-        return NULL;
-    }
-
-    Get_cvMat_From_Numpy_Mat(desc, cvdesc, CV_64FC1);
-    Get_cvMat_From_Numpy_Mat(pca_desc, cvpca_desc, CV_64FC1);
-
-    /*printf("%d %d : %d %d data %d %d : %d %d\n", cvdesc.cols, cvdesc.rows, cvpca_desc.cols, cvpca_desc.rows,   
-                                                 pca_object.mean.cols, pca_object.mean.rows, pca_object.eigenstd::vectors.cols, pca_object.eigenstd::vectors.rows);
-    */
-    
-    pca_object.project(cvdesc, cvpca_desc);
-
-
-
-    Py_INCREF(Py_None);
-    return Py_None;    
-
-}
 
 //=============================================================================================================================
 PyObject *Init_GIST(PyObject* obj, PyObject *args)
@@ -404,13 +387,15 @@ PyObject *Init_GIST(PyObject* obj, PyObject *args)
 	IMAGE_WIDTH  = cols;
 	IMAGE_HEIGHT = rows;
 
-    tmp_image = cv::Mat(IMAGE_HEIGHT, IMAGE_WIDTH, CV_32F);
-    proc_img  = cv::Mat(IMAGE_HEIGHT-(KERNEL_SIZE+1), IMAGE_WIDTH-(KERNEL_SIZE+1), CV_32F);
-    gpu_img   = cv::gpu::GpuMat(IMAGE_HEIGHT, IMAGE_WIDTH, CV_32F);
-    gpu_tmp   = cv::gpu::GpuMat(IMAGE_HEIGHT-(KERNEL_SIZE+1), IMAGE_WIDTH-(KERNEL_SIZE+1), CV_32F);
+    tmp_image      = cv::Mat(IMAGE_HEIGHT, IMAGE_WIDTH, CV_64F);
+    proc_img       = cv::Mat(IMAGE_HEIGHT-(KERNEL_SIZE+1), IMAGE_WIDTH-(KERNEL_SIZE+1), CV_32F);
+    gpu_img        = cv::gpu::GpuMat(IMAGE_HEIGHT, IMAGE_WIDTH, CV_32F);
+    gpu_tmp        = cv::gpu::GpuMat(IMAGE_HEIGHT-(KERNEL_SIZE+1), IMAGE_WIDTH-(KERNEL_SIZE+1), CV_32F);
     gpu_integral   = cv::gpu::GpuMat(IMAGE_HEIGHT-(KERNEL_SIZE+1)+1, IMAGE_WIDTH-(KERNEL_SIZE+1)+1, CV_32F);
     
-    Response_Image = response_init(IMAGE_HEIGHT-(KERNEL_SIZE+1)+1, IMAGE_WIDTH-(KERNEL_SIZE+1)+1);
+    Response_Image      = response_init(IMAGE_HEIGHT-(KERNEL_SIZE+1)+1, IMAGE_WIDTH-(KERNEL_SIZE+1)+1);
+    Gpu_Response_Images = create_gpu_response_images(Gabor_filters->size(), IMAGE_HEIGHT-(KERNEL_SIZE+1), IMAGE_WIDTH-(KERNEL_SIZE+1));
+
 
 
 	Py_INCREF(Py_None);
@@ -425,27 +410,6 @@ PyObject *Cleanup_GIST(PyObject *obj, PyObject *args)
     return Py_None;
 }
 
-/*
-PyObject *Init_PCA(PyObject* obj, PyObject *args)
-{
-    PyArrayObject *mean, *eigenstd::vectors;
-    
-
-    if (!PyArg_ParseTuple(args, "O!O!", &PyArray_Type, &mean, &PyArray_Type, &eigenstd::vectors))  {
-        printf("FAILED PROCESSING Parsing\n");
-        return NULL;
-    }
-    
-    Get_cvMat_From_Numpy_Mat(mean, pca_object.mean, CV_64FC1);
-    Get_cvMat_From_Numpy_Mat(eigenstd::vectors, pca_object.eigenstd::vectors, CV_64FC1);
-    
-    PCcount = pca_object.eigenstd::vectors.rows;
-
-    
-    return Py_BuildValue("(ii)", PCcount, pca_object.mean.cols);
-
-}
-*/
 
 PyObject *Process_Image(PyObject *obj, PyObject *args)
 {
@@ -462,7 +426,6 @@ PyObject *Process_Image(PyObject *obj, PyObject *args)
 	Get_cvMat_From_Numpy_Mat(imarray, tmp, 16);
 
 	format_image(tmp, output);
-    
     
 	Process(output);
 	
@@ -531,19 +494,7 @@ extern "C" {
 		{"process", Process_Image, METH_VARARGS},
         {"alloc", Descriptor_Allocate, METH_VARARGS},
         {"get", Get_Descriptor, METH_VARARGS},
-        //{"init_pca", Init_PCA, METH_VARARGS},
-       // {"pca_project", PCA_project, METH_VARARGS},
-
-		/*{"GIST_ProcessT_Get_Info",  GIST_Get_Info, METH_VARARGS},
-		{"GIST_PCA_new",    GIST_PCA_new, METH_VARARGS},
-		{"GIST_Process",    GIST_Process, METH_VARARGS},
-		{"GIST_Get_Descriptor_Alloc", GIST_Get_Descriptor_Alloc, METH_VARARGS},
-		{"GIST_Get_Descriptor_Reuse", GIST_Get_Descriptor_Reuse, METH_VARARGS},
-		{"GIST_Get_Descriptor_Rectangle_Alloc", GIST_Get_Descriptor_Rectangle_Alloc, METH_VARARGS},
-		{"GIST_Get_Descriptor_Rectangle_Reuse", GIST_Get_Descriptor_Rectangle_Reuse, METH_VARARGS},
-		{"GIST_Get_Descriptor_PCA_Reuse", GIST_Get_Descriptor_PCA_Reuse, METH_VARARGS},
-		{"GIST_Get_Descriptor_PCA_Alloc", GIST_Get_Descriptor_PCA_Alloc, METH_VARARGS},*/
-		{NULL, NULL}
+        {NULL, NULL}
 	};
 
 	void initlibgist()  {

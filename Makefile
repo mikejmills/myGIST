@@ -15,7 +15,7 @@ LDFLAGS=-lpthread `pkg-config opencv --libs`  -L/usr/lib/python2.7/ `pkg-config 
 #Check Arch Mac
 ifeq ($(M_ARCH), $(MAC_ARCH))  
 	CFLAGS=$(BCFLAGS)  -I/usr/local/include/opencv/ -I/usr/include/python2.7/ -I/Library/Python/2.7/site-packages/numpy/core/include -I/usr/local/include/  -Wall -Wno-sign-compare -g
-	LDFLAGS=-lpthread /usr/local/lib/libopencv_core.dylib /usr/local/lib/libopencv_highgui.dylib /usr/local/lib/libopencv_gpu.dylib /usr/local/lib/libopencv_imgproc.dylib -L/System/Library/Frameworks/Python.framework/Versions/2.7/Extras/lib/python/numpy/ -L/usr/local/lib/ -lpython2.7
+	LDFLAGS=-lpthread `pkg-config opencv --libs` -L/System/Library/Frameworks/Python.framework/Versions/2.7/Extras/lib/python/numpy/ -L/usr/local/lib/ -lpython2.7
 endif
 
 SOURCES= gist.cpp main.cpp PCA.cpp ../GISTHoming/alglib/*.o
@@ -34,6 +34,12 @@ python: python_gist.cpp python_gist.h
 	@echo CC python_gist.cpp
 	@g++ $(CFLAGS) -fPIC python_gist.cpp -o libgist.o
 	@g++ -shared libgist.o -o libgist.so $(LDFLAGS) 	# -ffast-math
+
+FAST: FAST_GPU.cpp
+	@echo CC FAST_GPU.cpp
+	@g++ $(CFLAGS) -c FAST_GPU.cpp
+	@echo LD FAST_GPU.cpp
+	@g++ $(LDFLAGS) FAST_GPU.o -o fast_test
 
 $(EXECUTABLE): $(OBJECTS)
 	@echo LINKING $(EXECUTABLE)

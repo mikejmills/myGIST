@@ -288,10 +288,7 @@ void Process(cv::Mat &im)
     //
     // Do the GPU calculations and store the results into several Response images
     for (unsigned int k=0; k < Gabor_filters->size(); k++) {
-        //cv::gpu::equalizeHist(gpu_img, gpu_img);
-        //cv::gpu::GaussianBlur(gpu_img, gpu_img, cv::Size(9,9), 2.0, 2.0); // cv::BORDER_DEFAULT, -1);
         cv::gpu::convolve(gpu_img, (*Gabor_filters)[k], gpu_tmp);
-        //cv::gpu::filter2D(gpu_img, gpu_tmp, (*Gabor_filters)[k], -1 );
         cv::gpu::pow(gpu_tmp, 2.0, (*Gpu_Response_Images)[k]);
     }
 
@@ -304,9 +301,8 @@ void Process(cv::Mat &im)
     for (unsigned int k=0; k < Gabor_filters->size(); k++) {
         (*Gpu_Response_Images)[k].download(proc_img); 
         
-        if (k == 0) {
+        if (k == 9) {
             cv::imshow("Response Image", proc_img);
-            printf("Image Size %d %d\n", proc_img.cols, proc_img.cols);
         }
 
         cv::integral(proc_img, (*Response_Image)[k]);

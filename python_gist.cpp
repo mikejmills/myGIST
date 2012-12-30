@@ -11,6 +11,7 @@
 
 #include <numpy/ndarrayobject.h>
 
+
 #define KERNEL_SIZE 21
 
 int IMAGE_HEIGHT = 480, IMAGE_WIDTH = 640;
@@ -137,139 +138,12 @@ void format_image(cv::Mat &input, cv::Mat &output)
     
 }
 //=============================================================================================================================
-/*
-cv::Mat prefilt_process(cv::Mat &im, int fc)
-{
-    cv::Mat pim;
-    int i,j;
-    int width  = im.cols;
-    int height = im.rows;
-    //
-    // Log
-    for(j = 0; j < height; j++)
-    {
-        for(i = 0; i < width; i++) {
-            //((double*)im.data)[j*im.cols+i] = (double)log( ((double*)im.data)[j*im.cols+i]+1.0f );
-            im.at<double>(j,i) = log(im.at<double>(j,i)+1.0);
-        }
-    }
-    
-    //
-    // Add padding
-    //copyMakeBorder(im, pim, 5, 5, 5, 5,  IPL_BORDER_REPLICATE);
-    copyMakeBorder(im, pim, 5, 5, 5, 5, IPL_BORDER_CONSTANT, cv::Scalar(0,0,0));
-
-    width  = pim.cols;
-    height = pim.rows;
-
-    //
-    // Build whitening filter and apply whitening filter
-    double s1 = fc/sqrt(log(2.0));
-    for(j = 0; j < height; j++)
-    {
-        for(i = 0; i < width; i++)
-        {
-            in1[j*width + i][0] = pim.at<double>(j,i);
-            in1[j*width + i][1] = 0.0f;
-            
-
-            fx[j*width + i] = (double) i - width/2.0;
-            fy[j*width + i] = (double) j - height/2.0;
-
-            gfc[j*width + i] = exp(-(fx[j*width + i]*fx[j*width + i] + fy[j*width + i]*fy[j*width + i]) / (s1*s1));
-            
-        }
-    }
-    
-    fftshift(gfc, width, height);
-
-    fftwf_execute(fft1);
-
-    for(j = 0; j < height; j++)
-    {
-        for(i = 0; i < width; i++)
-        {
-            
-            out[j*width+i][0] *= gfc[j*width + i];
-            out[j*width+i][1] *= gfc[j*width + i];
-            
-        }
-    }
-   
-    fftwf_execute(ifft1);
-
-
-    //
-    // Local contrast normalisation 
-    for(j = 0; j < height; j++)
-    {
-        for(i = 0; i < width; i++)
-        {
-            //((double *)pim.data)[j*pim.cols+i] -= in2[j*width+i][0] / (width*height);
-            pim.at<double>(j,i) -= in2[j*width+i][0] / (width*height);
-
-            in1[j*width + i][0] = pim.at<double>(j,i) * pim.at<double>(j,i);
-            in1[j*width + i][1] = 0.0;
-
-            //printf("local %f\n", in1[j*width + i][0]);
-        }
-    }
-    //exit(1);
-
-    fftwf_execute(fft2);
-
-    for(j = 0; j < height; j++)
-    {
-        for(i = 0; i < width; i++)
-        {
-            out[j*width+i][0] *= gfc[j*width + i];
-            out[j*width+i][1] *= gfc[j*width + i];
-        }
-    }
-
-    fftwf_execute(ifft2);
-
-
-    //
-    // Get result from contrast normalisation filter
-    for(j = 0; j < height; j++)
-    {
-        for(i = 0; i < width; i++) {
-            pim.at<double>(j,i) = pim.at<double>(j,i) / (0.2+sqrt(sqrt(in2[j*width+i][0]*in2[j*width+i][0]+in2[j*width+i][1]*in2[j*width+i][1]) / (width*height)));
-        }
-    }
-    
-    
-    //
-    // Remove borders
-    cv::Mat res = pim(cv::Rect(5, 5, pim.cols-10, pim.rows-10));
-    
-    return res;
-}*/
     
 
 
 cv::gpu::GpuMat gpu_img, gpu_tmp, gpu_integral;
 cv::Mat         proc_img;
 
-void prefilt_process()
-{
-    cv::gpu::GpuMat gpu_img_blur, lowContrastMask, sharpened;
-    double amount = 1;
-
-    cv::gpu::GaussianBlur(gpu_img, gpu_img_blur, cv::Size(9,9), 2.0, 2.0); // cv::BORDER_DEFAULT, -1);
-    cv::gpu::subtract(gpu_img, gpu_img_blur, lowContrastMask);
-    cv::gpu::abs(lowContrastMask, lowContrastMask);
-    cv::gpu::threshold(lowContrastMask, lowContrastMask, 0.2, 1, cv::THRESH_BINARY);
-
-    cv::gpu::multiply(gpu_img, 1+amount, sharpened);
-    cv::gpu::multiply(gpu_img_blur, -amount, gpu_img_blur);
-    cv::gpu::add(sharpened, gpu_img_blur, gpu_img);
-
-    //cv::gpu::GpuMat lowContrastMask = abs(gpu_img - gpu_img_blur) < 0.5;
-    //cv::gpu::GpuMat sharpened = gpu_img*(1+amount) + gpu_img_blur*(-amount);
-    //img.copyTo(sharpened, gpu_img);
-}
 
 //=============================================================================================================================
 void Process(cv::Mat &im)
@@ -282,9 +156,7 @@ void Process(cv::Mat &im)
     //cv::imshow("Response Image", im);
     gpu_img.upload(im);
     
-    //prefilt_process();
-    //gpu_img.download(im);
-
+    
     //
     // Do the GPU calculations and store the results into several Response images
     for (unsigned int k=0; k < Gabor_filters->size(); k++) {
@@ -428,42 +300,6 @@ PyArrayObject *Allocate_Descriptor_Mem(int xblks, int yblks)
 
 
 
-cv::gpu::FAST_GPU Gpu_Fast_Corner_Detector(50, TRUE); // Look into changing the threshold
-cv::gpu::GpuMat   FAST_gpu_im;
-    
-std::vector<cv::KeyPoint> Get_Corners(cv::Mat im, int n_points)
-{
-    std::vector<cv::KeyPoint> keypoints, ret_points(n_points);
-    srand ( time(NULL) );
-
-    im.convertTo(im, CV_8UC1, 255);
-    
-    FAST_gpu_im.upload(im);
-    
-    Gpu_Fast_Corner_Detector(FAST_gpu_im, cv::gpu::GpuMat(), keypoints);
-    
-    if (keypoints.size() <= 0) {
-        return ret_points;
-    } 
-
-    for (int i=0; i < n_points; i++) {
-        ret_points[i] = keypoints[int(rand() % keypoints.size())];
-    }
-
-    return ret_points;
-}
-
-PyObject *Create_Keypoint_Descriptor(cv::KeyPoint pt, int w, int h, int xblks, int yblks, PyArrayObject *desc)
-{
-    
-    
-
-    //Fill_Descriptor( (double *)(desc->data) + offset, pt.pt.x, pt.pt.y, w, h, xblks, yblks);
-
-    //
-    // ( (x,y), (w,h), (xblks, yblks))
-    return Py_BuildValue("( (ii), (ii), (ii), O)", pt.pt.x, pt.pt.y, w, h, xblks, yblks, desc);
-}
 
 
 //=============================================================================================================================
@@ -485,7 +321,6 @@ PyObject *Init_GIST(PyObject* obj, PyObject *args)
 
     tmp_image      = cv::Mat(IMAGE_HEIGHT, IMAGE_WIDTH, CV_64F);
     proc_img       = cv::Mat(IMAGE_HEIGHT-(KERNEL_SIZE+1), IMAGE_WIDTH-(KERNEL_SIZE+1), CV_32F);
-    printf("Proc Img Initialization %d %d\n", IMAGE_WIDTH-(KERNEL_SIZE+1), IMAGE_HEIGHT-(KERNEL_SIZE+1));
     gpu_img        = cv::gpu::GpuMat(IMAGE_HEIGHT, IMAGE_WIDTH, CV_32F);
     gpu_tmp        = cv::gpu::GpuMat(IMAGE_HEIGHT-(KERNEL_SIZE+1), IMAGE_WIDTH-(KERNEL_SIZE+1), CV_32F);
     gpu_integral   = cv::gpu::GpuMat(IMAGE_HEIGHT-(KERNEL_SIZE+1)+1, IMAGE_WIDTH-(KERNEL_SIZE+1)+1, CV_32F);
@@ -535,7 +370,6 @@ PyObject *Process_Image(PyObject *obj, PyObject *args)
 PyObject *Descriptor_Allocate(PyObject *obj, PyObject *args)
 {
     int xblks, yblks;
-    int dims[2];
     PyArrayObject *desc;
 
 
@@ -572,52 +406,7 @@ PyObject *Get_Descriptor(PyObject *obj, PyObject *args)
 
 }
 
-//
-// Create a descriptor based on the locations of points
-//   params image, num_points, width, height, xblks, yblks
-PyObject *Create_Corner_Descriptor(PyObject *obj, PyObject *args)
-{
-    cv::Mat        output, tmp;
-    PyArrayObject  *imarray;
-    int win_width, win_height, xblks, yblks, n_points;
 
-    if (!PyArg_ParseTuple(args, "O!iiiii",  &PyArray_Type,  &imarray, &n_points, &win_width, &win_height, &xblks, &yblks))  {
-        printf("FAILED PROCESSING Parsing\n");
-        return NULL;
-    }
-
-    Py_INCREF(imarray);
-    
-    Get_cvMat_From_Numpy_Mat(imarray, tmp, 16);
-    format_image(tmp, output);
-    
-    std::vector<cv::KeyPoint> keypoints = Get_Corners(output, n_points);
-    printf("returned keypoints size %d\n", keypoints.size());
-    
-    PyObject *desc_list = PyList_New(keypoints.size());
-
-    for (int i=0; i < keypoints.size(); i++) {
-        //PyObject *desc = Create_Keypoint_Descriptor(keypoints[i], win_width, win_height, xblks, yblks);
-        //PyList.SetItem(desc_list, i, desc);
-    }
-
-    // Detect Fast Points return n
-    // At each location define a descriptor (w, h) (xblks, yblks)
-    // for each location
-    //     get descriptor return a ((x_loc,y_loc), (w,h), (xblks, yblks), desc)
-
-    // return the full structure structure 
-
-    Py_DECREF(imarray);
-    Py_INCREF(Py_None);
-    return Py_None;
-}
-
-PyObject *Get_Corner_Descriptor(PyObject *obj, PyObject *args)
-{
-    Py_INCREF(Py_None);
-    return Py_None;   
-}
 
 //#############################################PYTHON INTERFACE###############################################################
 extern "C" {
@@ -627,7 +416,6 @@ extern "C" {
 		{"process", Process_Image, METH_VARARGS},
         {"alloc", Descriptor_Allocate, METH_VARARGS},
         {"get", Get_Descriptor, METH_VARARGS},
-        {"create_corner_descriptor", Create_Corner_Descriptor, METH_VARARGS},
         {NULL, NULL}
 	};
 
